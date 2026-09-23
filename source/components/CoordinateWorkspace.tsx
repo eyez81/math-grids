@@ -252,31 +252,53 @@ const TOOL_META: Record<Tool, { icon: string; label: string }> = {
 };
 type HelpEntry = {
   title: string;
-  tool: Tool;
+  tool?: Tool;
   mode: Mode;
-  section: "shapes" | "constructions" | "text";
+  keepMode?: boolean;
+  section: "shapes" | "constructions" | "text" | "view" | "functions" | "sliders" | "transform";
   keywords: string;
+  definition: string;
   instruction: string;
 };
 const HELP_ENTRIES: HelpEntry[] = [
-  { title: "נקודה", tool: "point", mode: "coordinates", section: "shapes", keywords: "קואורדינטות שיעורים", instruction: "בחרו נקודה ולחצו במקום הרצוי במישור. אפשר לשנות את שיעוריה במאפיינים." },
-  { title: "קטע", tool: "segment", mode: "shapes", section: "shapes", keywords: "אורך צלע", instruction: "בחרו קטע ולחצו על שתי נקודות קצה, לפי הסדר." },
-  { title: "ישר", tool: "line", mode: "shapes", section: "shapes", keywords: "משוואה קו", instruction: "בחרו ישר ולחצו על שתי נקודות שהוא עובר דרכן." },
-  { title: "מצולע", tool: "polygon", mode: "shapes", section: "shapes", keywords: "משולש מרובע שטח היקף", instruction: "בחרו מצולע ולחצו על הקודקודים לפי הסדר. לסגירה לחצו על הנקודה הראשונה או על סיום מצולע." },
-  { title: "זווית", tool: "angle", mode: "measurement", section: "shapes", keywords: "מעלות גודל", instruction: "בחרו זווית ולחצו על שלוש נקודות. הנקודה השנייה היא קודקוד הזווית." },
-  { title: "מעגל: מרכז ונקודה", tool: "circle", mode: "measurement", section: "shapes", keywords: "רדיוס", instruction: "בחרו את מרכז המעגל ואז נקודה על היקפו." },
-  { title: "מעגל: מרכז ורדיוס", tool: "circleRadius", mode: "measurement", section: "shapes", keywords: "רדיוס מספר", instruction: "בחרו מרכז, הזינו רדיוס בחלונית שנפתחת ואשרו." },
-  { title: "מעגל דרך 3 נקודות", tool: "circleThree", mode: "measurement", section: "shapes", keywords: "מעגל חוסם", instruction: "בחרו שלוש נקודות שונות שעל המעגל." },
-  { title: "נקודת אמצע", tool: "midpoint", mode: "measurement", section: "constructions", keywords: "אמצע קטע צלע", instruction: "בחרו קטע, ישר או צלע של מצולע המחוברים לשתי נקודות." },
-  { title: "מקביל", tool: "parallel", mode: "measurement", section: "constructions", keywords: "ישרים מקבילים", instruction: "בחרו קטע, ישר או צלע, ואחר כך נקודה שהישר המקביל יעבור דרכה." },
-  { title: "מאונך", tool: "perpendicular", mode: "measurement", section: "constructions", keywords: "אנך ניצב תשעים מעלות", instruction: "בחרו קטע, ישר או צלע, ואחר כך נקודה שהישר המאונך יעבור דרכה." },
-  { title: "גובה במשולש", tool: "perpendicular", mode: "measurement", section: "constructions", keywords: "גובה אנך למשולש", instruction: "צרו משולש. בכלי מאונך בחרו את הצלע שמול הקודקוד ואז את הקודקוד. מתקבל ישר מאונך; לקטע גובה סמנו את נקודת החיתוך עם הצלע וצרו קטע מהקודקוד אליה." },
-  { title: "אנך אמצעי", tool: "perpendicularBisector", mode: "measurement", section: "constructions", keywords: "חוצה קטע", instruction: "בחרו קטע, ישר או צלע המחוברים לשתי נקודות. הכלי יוצר נקודת אמצע וישר מאונך דרכה." },
-  { title: "תיכון במשולש", tool: "median", mode: "measurement", section: "constructions", keywords: "תיכון אמצע צלע", instruction: "בחרו משולש ולאחר מכן את הקודקוד שממנו יוצא התיכון." },
-  { title: "חוצה זווית", tool: "angleBisector", mode: "measurement", section: "constructions", keywords: "זוויות", instruction: "בחרו זווית קיימת; לחלופין בחרו שלוש נקודות, כשהשנייה היא קודקוד הזווית." },
-  { title: "נקודות חיתוך", tool: "intersection", mode: "measurement", section: "constructions", keywords: "מפגש ישרים", instruction: "בחרו אובייקט ראשון ואחריו אובייקט שני. אם יש חיתוך, הנקודות ייווצרו במישור." },
-  { title: "טקסט חופשי", tool: "text", mode: "coordinates", section: "text", keywords: "כיתוב הערה", instruction: "פתחו טקסט והערות, כתבו את הטקסט ואז לחצו במישור כדי למקם אותו." },
-  { title: "בחירה וגרירה", tool: "select", mode: "coordinates", section: "shapes", keywords: "הזזה עריכה מאפיינים", instruction: "בחרו אובייקט כדי לפתוח את מאפייניו. גררו נקודה או טקסט כדי להזיז אותם." },
+  { title: "נקודה", tool: "point", mode: "coordinates", section: "shapes", keywords: "קואורדינטות שיעורים", definition: "מיקום במישור המתואר על ידי זוג שיעורים (x, y).", instruction: "בחרו נקודה ולחצו במקום הרצוי במישור. אפשר לשנות את שיעוריה במאפיינים." },
+  { title: "קטע", tool: "segment", mode: "shapes", section: "shapes", keywords: "אורך צלע", definition: "חלק של ישר המוגבל בשתי נקודות קצה.", instruction: "בחרו קטע ולחצו על שתי נקודות קצה, לפי הסדר." },
+  { title: "ישר", tool: "line", mode: "shapes", section: "shapes", keywords: "משוואה קו", definition: "קו הנמשך ללא סוף בשני הכיוונים דרך שתי נקודות.", instruction: "בחרו ישר ולחצו על שתי נקודות שהוא עובר דרכן." },
+  { title: "מצולע", tool: "polygon", mode: "shapes", section: "shapes", keywords: "משולש מרובע שטח היקף", definition: "צורה סגורה המורכבת מקטעים המחברים קודקודים.", instruction: "בחרו מצולע ולחצו על הקודקודים לפי הסדר. לסגירה לחצו על הנקודה הראשונה או על סיום מצולע." },
+  { title: "זווית", tool: "angle", mode: "measurement", section: "shapes", keywords: "מעלות גודל", definition: "פתיחה בין שתי קרניים בעלות קודקוד משותף.", instruction: "בחרו זווית ולחצו על שלוש נקודות. הנקודה השנייה היא קודקוד הזווית." },
+  { title: "מעגל: מרכז ונקודה", tool: "circle", mode: "measurement", section: "shapes", keywords: "רדיוס", definition: "אוסף כל הנקודות שמרחקן מהמרכז שווה לרדיוס.", instruction: "בחרו את מרכז המעגל ואז נקודה על היקפו." },
+  { title: "מעגל: מרכז ורדיוס", tool: "circleRadius", mode: "measurement", section: "shapes", keywords: "רדיוס מספר", definition: "מעגל נקבע על ידי מרכז ורדיוס: המרחק מהמרכז להיקף.", instruction: "בחרו מרכז, הזינו רדיוס בחלונית שנפתחת ואשרו." },
+  { title: "מעגל דרך 3 נקודות", tool: "circleThree", mode: "measurement", section: "shapes", keywords: "מעגל חוסם", definition: "מעגל יחיד העובר דרך שלוש נקודות שאינן על ישר אחד.", instruction: "בחרו שלוש נקודות שונות שעל המעגל." },
+  { title: "נקודת אמצע", tool: "midpoint", mode: "measurement", section: "constructions", keywords: "אמצע קטע צלע", definition: "נקודה המחלקת קטע לשני קטעים שווי אורך.", instruction: "בחרו קטע, ישר או צלע של מצולע המחוברים לשתי נקודות." },
+  { title: "מקביל", tool: "parallel", mode: "measurement", section: "constructions", keywords: "ישרים מקבילים", definition: "ישרים באותו מישור שאינם נפגשים.", instruction: "בחרו קטע, ישר או צלע, ואחר כך נקודה שהישר המקביל יעבור דרכה." },
+  { title: "מאונך", tool: "perpendicular", mode: "measurement", section: "constructions", keywords: "אנך ניצב תשעים מעלות", definition: "ישרים שנפגשים בזווית ישרה של 90°.", instruction: "בחרו קטע, ישר או צלע, ואחר כך נקודה שהישר המאונך יעבור דרכה." },
+  { title: "גובה במשולש", tool: "perpendicular", mode: "measurement", section: "constructions", keywords: "גובה אנך למשולש", definition: "קטע מקודקוד המשולש אל הצלע שמולו או המשכה, המאונך לה.", instruction: "צרו משולש. בכלי מאונך בחרו את הצלע שמול הקודקוד ואז את הקודקוד. מתקבל ישר מאונך; לקטע גובה סמנו את נקודת החיתוך עם הצלע וצרו קטע מהקודקוד אליה." },
+  { title: "אנך אמצעי", tool: "perpendicularBisector", mode: "measurement", section: "constructions", keywords: "חוצה קטע", definition: "ישר המאונך לקטע ועובר דרך נקודת האמצע שלו.", instruction: "בחרו קטע, ישר או צלע המחוברים לשתי נקודות. הכלי יוצר נקודת אמצע וישר מאונך דרכה." },
+  { title: "תיכון במשולש", tool: "median", mode: "measurement", section: "constructions", keywords: "תיכון אמצע צלע", definition: "קטע מקודקוד המשולש אל אמצע הצלע שמולו.", instruction: "בחרו משולש ולאחר מכן את הקודקוד שממנו יוצא התיכון." },
+  { title: "חוצה זווית", tool: "angleBisector", mode: "measurement", section: "constructions", keywords: "זוויות", definition: "קרן המחלקת זווית לשתי זוויות שוות.", instruction: "בחרו זווית קיימת; לחלופין בחרו שלוש נקודות, כשהשנייה היא קודקוד הזווית." },
+  { title: "נקודות חיתוך", tool: "intersection", mode: "measurement", section: "constructions", keywords: "מפגש ישרים", definition: "נקודות משותפות לשני אובייקטים גאומטריים.", instruction: "בחרו אובייקט ראשון ואחריו אובייקט שני. אם יש חיתוך, הנקודות ייווצרו במישור." },
+  { title: "טקסט חופשי", tool: "text", mode: "coordinates", section: "text", keywords: "כיתוב הערה", definition: "כיתוב המוצג במיקום שתבחרו במישור.", instruction: "פתחו טקסט והערות, כתבו את הטקסט ואז לחצו במישור כדי למקם אותו." },
+  { title: "בחירה וגרירה", tool: "select", mode: "coordinates", section: "shapes", keywords: "הזזה עריכה מאפיינים", definition: "כלי לבחירת אובייקט, שינוי מאפייניו והזזת נקודות או טקסט.", instruction: "בחרו אובייקט כדי לפתוח את מאפייניו. גררו נקודה או טקסט כדי להזיז אותם." },
+  { title: "הזזת מישור", tool: "pan", mode: "coordinates", section: "view", keywords: "תנועה גרירה תצוגה", definition: "שינוי האזור הנראה במישור בלי לשנות את מיקום האובייקטים ביחס לצירים.", instruction: "בחרו הזזת מישור וגררו את הרקע. התקרבו והתרחקו בעזרת גלגלת העכבר או פקדי התצוגה." },
+  { title: "גודל שנתה", mode: "coordinates", section: "view", keywords: "רשת יחידות קנה מידה", definition: "הערך של המרווח בין שנתות סמוכות על הצירים.", instruction: "פתחו תצוגת המישור והקלידו ערך חיובי בשדה גודל שנתה." },
+  { title: "הצמדה לרשת", mode: "coordinates", section: "view", keywords: "נקודות דיוק", definition: "מיקום נקודות על מפגשי קווי הרשת בעת יצירתן או גרירתן.", instruction: "הפעילו או כבו את המתג הצמדה לרשת בתצוגת המישור." },
+  { title: "הצגת רשת", mode: "coordinates", section: "view", keywords: "סריג קווים", definition: "קווי העזר של מערכת הצירים.", instruction: "בתצוגת המישור הפעילו או כבו הצגת רשת; הצירים נשלטים בנפרד." },
+  { title: "הצגת צירים ושמותיהם", mode: "coordinates", section: "view", keywords: "ציר אופקי אנכי הסתרה", definition: "ציר x אופקי וציר y אנכי מגדירים את הכיוונים במישור.", instruction: "בתצוגת המישור הפעילו או כבו הצגת צירים, ושנו את השמות בשדות שמתחת למתג." },
+  { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגת המישור." },
+  { title: "פונקציה קווית", mode: "linear", section: "functions", keywords: "גרף ישר משוואה שיפוע", definition: "פונקציה מהצורה y=mx+b שהגרף שלה הוא ישר.", instruction: "פתחו גרפים ופונקציות, לחצו הוספת פונקציה, הזינו משוואה ואשרו." },
+  { title: "פונקציה ריבועית וכללית", mode: "graphs", section: "functions", keywords: "פרבולה גרפים משוואה", definition: "פונקציה ריבועית כוללת איבר x²; פונקציה כללית יכולה לכלול גם ביטויים אחרים.", instruction: "בסביבת גרפים ופונקציות פתחו הוספת פונקציה, הקלידו למשל y=x^2 ואשרו." },
+  { title: "מחוון דינמי", mode: "graphs", section: "sliders", keywords: "משתנה פרמטר הזזה אנימציה", definition: "משתנה שאפשר לשנות את ערכו כדי לראות כיצד פונקציה תלויה בו.", instruction: "פתחו מחוונים דינמיים, הגדירו אות, ערך, טווח וצעד, ולחצו הוספת מחוון. השתמשו באות במשוואת הפונקציה." },
+  { title: "הזזה", mode: "advanced", section: "transform", keywords: "טרנספורמציה העתקה וקטור", definition: "העברת כל נקודה באותו מרחק ובאותו כיוון: (x,y) הופך ל־(x+Δx,y+Δy).", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו Δx ו־Δy ולחצו הזזה. נוצר עותק מוזז." },
+  { title: "סיבוב סביב הראשית", mode: "advanced", section: "transform", keywords: "טרנספורמציה זווית", definition: "סיבוב צורה סביב הנקודה (0,0) בזווית נתונה.", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו זווית במעלות ולחצו סיבוב סביב הראשית." },
+  { title: "שיקוף בציר x", mode: "advanced", section: "transform", keywords: "טרנספורמציה תמונת מראה", definition: "תמונת מראה ביחס לציר האופקי: (x,y) הופך ל־(x,−y).", instruction: "בחרו אובייקט, פתחו טרנספורמציות ולחצו שיקוף בציר x." },
+  { title: "שיקוף בציר y", mode: "advanced", section: "transform", keywords: "טרנספורמציה תמונת מראה", definition: "תמונת מראה ביחס לציר האנכי: (x,y) הופך ל־(−x,y).", instruction: "בחרו אובייקט, פתחו טרנספורמציות ולחצו שיקוף בציר y." },
+  { title: "שיקוף ב־y=x", mode: "advanced", section: "transform", keywords: "טרנספורמציה תמונת מראה", definition: "תמונת מראה ביחס לישר y=x: שיעורי הנקודה מתחלפים.", instruction: "בחרו אובייקט, פתחו טרנספורמציות ולחצו שיקוף ב־y=x." },
+  { title: "זום והתקרבות", mode: "coordinates", keepMode: true, section: "view", keywords: "הגדלה הקטנה פלוס מינוס", definition: "שינוי גודל התצוגה של המישור ללא שינוי שיעורי הנקודות.", instruction: "השתמשו בכפתורי + ו־− שליד אחוז התצוגה במישור." },
+  { title: "איפוס תצוגה", mode: "coordinates", keepMode: true, section: "view", keywords: "מרכוז התאמה", definition: "התאמת המבט במישור לאובייקטים הקיימים.", instruction: "לחצו איפוס תצוגה בכותרת. האובייקטים עצמם אינם נמחקים." },
+  { title: "רשימת אובייקטים ומאפיינים", mode: "coordinates", keepMode: true, section: "view", keywords: "צבע עובי הסתרה מדידות מחיקה", definition: "הרשימה מציגה את הפריטים שנוצרו ומאפשרת לערוך כל אחד מהם.", instruction: "בחרו פריט ברשימת אובייקטים כדי לפתוח מאפיינים; לחצו על סימון הנראות כדי להסתיר או להציג אותו." },
+  { title: "ביטול וביצוע מחדש", mode: "coordinates", keepMode: true, section: "view", keywords: "undo redo חזור", definition: "חזרה לפעולה קודמת או החזרת פעולה שבוטלה.", instruction: "השתמשו בשני כפתורי החצים ליד חדש בכותרת." },
+  { title: "ייצוא PNG", mode: "coordinates", keepMode: true, section: "view", keywords: "הורדה תמונה שמירה", definition: "שמירת תמונה של המישור והאובייקטים שעליו.", instruction: "לחצו ייצוא PNG בכותרת כדי להוריד תמונה." },
+  { title: "דף חדש", mode: "coordinates", keepMode: true, section: "view", keywords: "איפוס הכל התחלה מחדש", definition: "פתיחת מישור עבודה ריק.", instruction: "לחצו + חדש בכותרת כדי להתחיל דף חדש." },
 ];
 const STROKE_STYLES: { value: StrokeStyle; label: string }[] = [
   { value: "solid", label: "רציף" },
@@ -675,19 +697,19 @@ export default function CoordinateWorkspace() {
     resetPending();
   };
   const openHelpTool = (entry: HelpEntry) => {
-    if (mode !== entry.mode) {
+    if (!entry.keepMode && mode !== entry.mode) {
       setMode(entry.mode);
       setSections({ ...MODE_DEFAULT_SECTIONS[entry.mode], [entry.section]: true });
     } else {
       setSections((current) => ({ ...current, [entry.section]: true }));
     }
-    chooseTool(entry.tool);
+    if (entry.tool) chooseTool(entry.tool);
     setRightOpen(true);
     setHelpOpen(false);
     setHelpQuery("");
   };
   const matchingHelp = HELP_ENTRIES.filter((entry) =>
-    `${entry.title} ${TOOL_META[entry.tool].label} ${entry.keywords} ${entry.instruction}`
+    `${entry.title} ${entry.tool ? TOOL_META[entry.tool].label : ""} ${entry.keywords} ${entry.definition} ${entry.instruction}`
       .toLocaleLowerCase("he")
       .includes(helpQuery.trim().toLocaleLowerCase("he")),
   );
@@ -3606,9 +3628,10 @@ export default function CoordinateWorkspace() {
             <div className="help-results">
               {matchingHelp.map((entry) => (
                 <article className="help-result" key={entry.title}>
-                  <div><strong>{entry.title}</strong><small>{MODES[entry.mode].label} ← {entry.section === "constructions" ? "מדידה ובניות" : entry.section === "text" ? "טקסט והערות" : "קטעים וצורות"}</small></div>
-                  <p>{entry.instruction}</p>
-                  <button onClick={() => openHelpTool(entry)}>מעבר לכלי</button>
+                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "מדידה ובניות", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגת המישור", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
+                  <p><b>מה זה?</b> {entry.definition}</p>
+                  <p><b>איך משתמשים?</b> {entry.instruction}</p>
+                  <button onClick={() => openHelpTool(entry)}>מעבר ←</button>
                 </article>
               ))}
               {matchingHelp.length === 0 && <p className="help-empty">לא נמצא כלי מתאים. נסו לחפש בשם פעולה אחר.</p>}

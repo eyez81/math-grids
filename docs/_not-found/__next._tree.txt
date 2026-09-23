@@ -1,2 +1,2 @@
-:HL["/math-grids/_next/static/chunks/0r55v~j-onb8t.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"NxBW5TRgJvIiKd3eN7a0y"}
+:HL["/math-grids/_next/static/chunks/0jt-uz6mrj.gt.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"_RTTCOZfULSu7l-pz1opq"}

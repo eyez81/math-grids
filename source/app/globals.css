@@ -1080,14 +1080,30 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .tool-section .tool-grid button {
-  height: 51px;
-  padding: 4px;
-  font-size: 11px;
-  line-height: 1.2;
+  min-height: 103px;
+  height: auto;
+  padding: 10px 6px;
+  flex-direction: column;
+  gap: 7px;
+  color: #17313a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
 }
-.tool-section .tool-grid button span {
-  font-size: 18px;
-  flex: 0 0 auto;
+.tool-section .tool-grid .tool-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+.tool-section .tool-grid .tool-label {
+  min-width: 0;
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+.tool-section .tool-grid button:hover,
+.tool-section .tool-grid button.active {
+  color: #076b65;
 }
 .finish-shape {
   width: 100%;

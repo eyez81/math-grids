@@ -250,6 +250,26 @@ const TOOL_META: Record<Tool, { icon: string; label: string }> = {
   intersection: { icon: "×", label: "נקודות חיתוך" },
   text: { icon: "T", label: "טקסט חופשי" },
 };
+const ToolIcon = ({ tool }: { tool: Tool }) => {
+  const paths: Partial<Record<Tool, React.ReactNode>> = {
+    point: <circle cx="24" cy="24" r="5" fill="currentColor" stroke="none" />,
+    segment: <><path d="M10 36 38 12" /><circle cx="10" cy="36" r="3" fill="currentColor" /><circle cx="38" cy="12" r="3" fill="currentColor" /></>,
+    line: <><path d="M9 37 39 11" /><path d="m9 37 1-8m-1 8 8-1M39 11l-8 1m8-1-1 8" /></>,
+    polygon: <path d="M24 8 42 39H6Z" />,
+    angle: <><path d="M7 38h34M7 38 33 10" /><path d="M19 38a12 12 0 0 0-4-9" /></>,
+    circle: <><circle cx="24" cy="24" r="17" /><circle cx="24" cy="24" r="2.5" fill="currentColor" /><circle cx="36" cy="12" r="3" fill="currentColor" /></>,
+    circleRadius: <><circle cx="24" cy="24" r="17" /><path d="M24 24h17" /><circle cx="24" cy="24" r="2.5" fill="currentColor" /><circle cx="41" cy="24" r="2.5" fill="currentColor" /></>,
+    circleThree: <><circle cx="24" cy="24" r="17" /><circle cx="24" cy="7" r="2.5" fill="currentColor" /><circle cx="9" cy="32" r="2.5" fill="currentColor" /><circle cx="39" cy="32" r="2.5" fill="currentColor" /></>,
+    midpoint: <><path d="M7 24h34" /><circle cx="7" cy="24" r="2.5" fill="currentColor" /><circle cx="24" cy="24" r="3.5" fill="currentColor" /><circle cx="41" cy="24" r="2.5" fill="currentColor" /></>,
+    parallel: <><path d="M7 19 35 7M13 41 41 29" /><path d="m32 8 3-1-1 3m4 18 3 1-1 3" /></>,
+    perpendicular: <><path d="M7 38h34M24 38V8" /><path d="M24 31h7v7" /></>,
+    perpendicularBisector: <><path d="M6 24h36M24 6v36" /><circle cx="6" cy="24" r="2" fill="currentColor" /><circle cx="42" cy="24" r="2" fill="currentColor" /><path d="M24 24h7v7" /></>,
+    median: <><path d="M24 7 43 40H5Z M24 7v33" /><circle cx="24" cy="40" r="2.5" fill="currentColor" /></>,
+    angleBisector: <><path d="M6 39h36M6 39 34 9M6 39 40 23" /><path d="M18 39a12 12 0 0 0-4-8" /></>,
+    intersection: <><path d="M8 9 40 39M8 39 40 9" /><circle cx="24" cy="24" r="3.5" fill="currentColor" /></>,
+  };
+  return <svg className="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[tool] ?? <text x="24" y="32" textAnchor="middle" fill="currentColor" stroke="none" fontSize="27">{TOOL_META[tool].icon}</text>}</svg>;
+};
 type HelpEntry = {
   title: string;
   tool?: Tool;
@@ -3830,8 +3850,8 @@ export default function CoordinateWorkspace() {
                       className={tool === t ? "active" : ""}
                       onClick={() => chooseTool(t)}
                     >
-                      <span>{TOOL_META[t].icon}</span>
-                      {TOOL_META[t].label}
+                      <ToolIcon tool={t} />
+                      <span className="tool-label">{TOOL_META[t].label}</span>
                     </button>
                   ))}
                 </div>
@@ -3854,8 +3874,8 @@ export default function CoordinateWorkspace() {
                         className={tool === t ? "active" : ""}
                         onClick={() => chooseTool(t)}
                       >
-                        <span>{TOOL_META[t].icon}</span>
-                        {TOOL_META[t].label}
+                        <ToolIcon tool={t} />
+                        <span className="tool-label">{TOOL_META[t].label}</span>
                       </button>
                     ))}
                   </div>

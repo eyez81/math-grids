@@ -3691,7 +3691,9 @@ export default function CoordinateWorkspace() {
                 className={tool === "select" ? "active" : ""}
                 onClick={() => chooseTool("select")}
               >
-                <span>{TOOL_META.select.icon}</span>
+                <svg className="select-cursor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 3 19 12 12 13 9 20Z" />
+                </svg>
                 {TOOL_META.select.label}
               </button>
             </div>

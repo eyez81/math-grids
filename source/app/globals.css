@@ -992,8 +992,12 @@ select {
   font-weight: 700;
   cursor: pointer;
 }
-.persistent-select-tool button span {
-  font-size: 20px;
+.persistent-select-tool .select-cursor {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-linejoin: round;
 }
 .persistent-select-tool button:hover,
 .persistent-select-tool button.active {

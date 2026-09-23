@@ -3929,9 +3929,11 @@ export default function CoordinateWorkspace() {
                 open={sections.functions}
                 onToggle={() => toggleSection("functions")}
               >
+                <p className="section-help panel-intro">בחרו פונקציה כדי להציג את הגרף שלה במישור.</p>
                 {mode === "linear" ? (
                   <p className="fixed-function-kind">פונקציה קווית · y=mx+b</p>
                 ) : null}
+                <div className="form-section-label">משוואת הפונקציה</div>
                 <button
                   className="open-keyboard"
                   onClick={() => {
@@ -3946,7 +3948,7 @@ export default function CoordinateWorkspace() {
                   >
                     <MathDisplay latex={equationLatex} />
                   </span>
-                  <b>⌨ הוספת פונקציה</b>
+                  <b>הוספת פונקציה</b>
                 </button>
                 <p className="equation-help">
                   {mode === "linear"
@@ -3959,7 +3961,8 @@ export default function CoordinateWorkspace() {
                   title="מחוונים דינמיים"
                   open={sections.sliders}
                   onToggle={() => toggleSection("sliders")}
-                >
+              >
+                <p className="section-help panel-intro">צרו משתנה שאפשר לשנות בעזרת מחוון.</p>
                 <div className="slider-create">
                   <div>
                     <label>
@@ -4006,8 +4009,9 @@ export default function CoordinateWorkspace() {
                       />
                     </label>
                   </div>
-                  <button onClick={addSlider}>＋ הוספת מחוון</button>
+                  <button onClick={addSlider}>הוספת מחוון</button>
                 </div>
+                {sliders.length > 0 && <div className="form-section-label slider-list-title">מחוונים קיימים</div>}
                 {sliders.map((s) => (
                   <div className="live-slider" key={s.id}>
                     <div>
@@ -4071,27 +4075,22 @@ export default function CoordinateWorkspace() {
               open={sections.transform}
               onToggle={() => toggleSection("transform")}
             >
-              <p className="section-help">
+              <p className="section-help panel-intro">
                 בחרו אובייקט, ואז צרו עותק שעבר טרנספורמציה.
               </p>
-              <div className="transform-row">
-                <label>
-                  Δx
-                  <input
-                    type="number"
-                    value={moveX}
-                    onChange={(e) => setMoveX(Number(e.target.value))}
-                  />
-                </label>
-                <label>
-                  Δy
-                  <input
-                    type="number"
-                    value={moveY}
-                    onChange={(e) => setMoveY(Number(e.target.value))}
-                  />
-                </label>
-                <button
+              <div className="transform-block">
+                <div className="form-section-label">הזזה</div>
+                <div className="transform-fields">
+                  <label>
+                    Δx
+                    <input type="number" value={moveX} onChange={(e) => setMoveX(Number(e.target.value))} />
+                  </label>
+                  <label>
+                    Δy
+                    <input type="number" value={moveY} onChange={(e) => setMoveY(Number(e.target.value))} />
+                  </label>
+                </div>
+                <button className="transform-action"
                   onClick={() =>
                     copyWithTransform(
                       (p) => ({ x: p.x + moveX, y: p.y + moveY }),
@@ -4102,16 +4101,12 @@ export default function CoordinateWorkspace() {
                   הזזה
                 </button>
               </div>
-              <div className="transform-row">
-                <label>
-                  זווית
-                  <input
-                    type="number"
-                    value={rotation}
-                    onChange={(e) => setRotation(Number(e.target.value))}
-                  />
-                </label>
-                <button
+              <div className="transform-block separated-block">
+                <div className="form-section-label">סיבוב</div>
+                <label className="rotation-label">זווית</label>
+                <div className="rotation-controls">
+                  <input id="rotation-angle" aria-label="זווית סיבוב במעלות" type="number" value={rotation} onChange={(e) => setRotation(Number(e.target.value))} />
+                  <button className="transform-action"
                   onClick={() => {
                     const a = (rotation * Math.PI) / 180;
                     copyWithTransform(
@@ -4122,11 +4117,12 @@ export default function CoordinateWorkspace() {
                       "עותק מסובב",
                     );
                   }}
-                >
-                  סיבוב סביב הראשית
-                </button>
+                  >סיבוב סביב הראשית</button>
+                </div>
               </div>
-              <div className="reflection-buttons">
+              <div className="transform-block separated-block">
+                <div className="form-section-label">שיקוף</div>
+                <div className="reflection-buttons">
                 <button
                   onClick={() =>
                     copyWithTransform(
@@ -4135,7 +4131,7 @@ export default function CoordinateWorkspace() {
                     )
                   }
                 >
-                  שיקוף בציר x
+                  <span>שיקוף בציר x</span><span className="reflection-mark axis-x" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() =>
@@ -4145,7 +4141,7 @@ export default function CoordinateWorkspace() {
                     )
                   }
                 >
-                  שיקוף בציר y
+                  <span>שיקוף בציר y</span><span className="reflection-mark axis-y" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() =>
@@ -4155,8 +4151,9 @@ export default function CoordinateWorkspace() {
                     )
                   }
                 >
-                  שיקוף ב־y=x
+                  <span>שיקוף ב־y=x</span><span className="reflection-mark axis-diagonal" aria-hidden="true" />
                 </button>
+                </div>
               </div>
             </ToolSection>
           )}

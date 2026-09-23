@@ -1250,6 +1250,106 @@ select {
   grid-template-columns: 1fr;
   gap: 6px;
 }
+.panel-intro {
+  margin-bottom: 13px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.form-section-label {
+  margin: 0 0 6px;
+  color: #31535b;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+.transform-block + .transform-block,
+.slider-list-title {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #dce9eb;
+}
+.transform-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.transform-fields label,
+.rotation-label { color: #607b80; font-size: 11px; font-weight: 700; }
+.transform-fields input,
+.rotation-controls input {
+  width: 100%;
+  height: 36px;
+  margin-top: 4px;
+  padding: 0 7px;
+  border: 1px solid #cbdfe5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  direction: ltr;
+  text-align: center;
+  font-size: 13px;
+}
+.transform-action,
+.reflection-buttons button {
+  min-height: 36px;
+  border: 1px solid #abd9d9;
+  border-radius: 8px;
+  background: #f0fbfa;
+  color: #076b65;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.transform-action:hover,
+.reflection-buttons button:hover { background: #e0f3f1; }
+.transform-block > .transform-action { width: 100%; margin-top: 7px; }
+.rotation-controls {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: end;
+  gap: 7px;
+}
+.rotation-controls input { margin-top: 0; }
+.reflection-buttons button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  text-align: right;
+}
+.reflection-mark {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  background: linear-gradient(#076b65, #076b65) center / 18px 2px no-repeat;
+}
+.reflection-mark.axis-x { border-top: 2px dashed #076b65; background-size: 2px 8px; background-position: center bottom 1px; }
+.reflection-mark.axis-y { border-left: 2px dashed #076b65; background-size: 8px 2px; background-position: right 1px center; }
+.reflection-mark.axis-diagonal { background: linear-gradient(135deg, transparent 46%, #076b65 47%, #076b65 53%, transparent 54%); }
+.slider-create > div:first-child { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.slider-create { gap: 9px; }
+.slider-create input { height: 36px; border-color: #cbdfe5; font-size: 13px; }
+.slider-create > button { height: 37px; background: #f0fbfa; color: #076b65; border-color: #abd9d9; font-size: 12px; }
+.slider-create > button:hover { background: #e0f3f1; }
+.slider-create label { font-size: 11px; }
+.open-keyboard { padding: 0; gap: 0; border: 0; background: transparent; }
+.open-keyboard:hover { border-color: transparent; background: transparent; }
+.open-keyboard .equation-preview { padding: 8px 10px; border-color: #cbdfe5; border-radius: 8px; }
+.open-keyboard b {
+  width: 100%;
+  min-height: 37px;
+  display: grid;
+  place-items: center;
+  margin-top: 7px;
+  border: 1px solid #abd9d9;
+  border-radius: 8px;
+  background: #f0fbfa;
+  color: #076b65;
+  font-size: 12px;
+}
+.open-keyboard:hover b { background: #e0f3f1; }
+.equation-help { font-size: 11px; margin-top: 8px; }
 .radius-field {
   display: block;
   margin: 10px 0;

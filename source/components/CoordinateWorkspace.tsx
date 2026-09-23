@@ -250,6 +250,16 @@ const TOOL_META: Record<Tool, { icon: string; label: string }> = {
   intersection: { icon: "×", label: "נקודות חיתוך" },
   text: { icon: "T", label: "טקסט חופשי" },
 };
+const SHAPE_ICON_FILES: Partial<Record<Tool, string>> = {
+  point: "point.svg",
+  segment: "segment.svg",
+  line: "line.svg",
+  polygon: "polygon.svg",
+  angle: "angle.svg",
+  circle: "circle_center_point.svg",
+  circleRadius: "circle_center_radius.svg",
+  circleThree: "circle_three_points.svg",
+};
 const ToolIcon = ({ tool }: { tool: Tool }) => {
   const paths: Partial<Record<Tool, React.ReactNode>> = {
     point: <circle cx="24" cy="24" r="5" fill="currentColor" stroke="none" />,
@@ -3850,7 +3860,11 @@ export default function CoordinateWorkspace() {
                       className={tool === t ? "active" : ""}
                       onClick={() => chooseTool(t)}
                     >
-                      <ToolIcon tool={t} />
+                      {SHAPE_ICON_FILES[t] ? (
+                        <img className="tool-icon" src={`/math-grids/tool-icons/${SHAPE_ICON_FILES[t]}`} alt="" aria-hidden="true" />
+                      ) : (
+                        <ToolIcon tool={t} />
+                      )}
                       <span className="tool-label">{TOOL_META[t].label}</span>
                     </button>
                   ))}

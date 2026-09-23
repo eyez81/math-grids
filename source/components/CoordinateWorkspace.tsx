@@ -280,11 +280,11 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "טקסט חופשי", tool: "text", mode: "coordinates", section: "text", keywords: "כיתוב הערה", definition: "כיתוב המוצג במיקום שתבחרו במישור.", instruction: "פתחו טקסט והערות, כתבו את הטקסט ואז לחצו במישור כדי למקם אותו." },
   { title: "בחירה וגרירה", tool: "select", mode: "coordinates", section: "shapes", keywords: "הזזה עריכה מאפיינים", definition: "כלי לבחירת אובייקט, שינוי מאפייניו והזזת נקודות או טקסט.", instruction: "בחרו אובייקט כדי לפתוח את מאפייניו. גררו נקודה או טקסט כדי להזיז אותם." },
   { title: "הזזת מישור", tool: "pan", mode: "coordinates", section: "view", keywords: "תנועה גרירה תצוגה", definition: "שינוי האזור הנראה במישור בלי לשנות את מיקום האובייקטים ביחס לצירים.", instruction: "בחרו הזזת מישור וגררו את הרקע. התקרבו והתרחקו בעזרת גלגלת העכבר או פקדי התצוגה." },
-  { title: "גודל שנתה", mode: "coordinates", section: "view", keywords: "רשת יחידות קנה מידה", definition: "הערך של המרווח בין שנתות סמוכות על הצירים.", instruction: "פתחו תצוגת המישור והקלידו ערך חיובי בשדה גודל שנתה." },
-  { title: "הצמדה לרשת", mode: "coordinates", section: "view", keywords: "נקודות דיוק", definition: "מיקום נקודות על מפגשי קווי הרשת בעת יצירתן או גרירתן.", instruction: "הפעילו או כבו את המתג הצמדה לרשת בתצוגת המישור." },
-  { title: "הצגת רשת", mode: "coordinates", section: "view", keywords: "סריג קווים", definition: "קווי העזר של מערכת הצירים.", instruction: "בתצוגת המישור הפעילו או כבו הצגת רשת; הצירים נשלטים בנפרד." },
-  { title: "הצגת צירים ושמותיהם", mode: "coordinates", section: "view", keywords: "ציר אופקי אנכי הסתרה", definition: "ציר x אופקי וציר y אנכי מגדירים את הכיוונים במישור.", instruction: "בתצוגת המישור הפעילו או כבו הצגת צירים, ושנו את השמות בשדות שמתחת למתג." },
-  { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגת המישור." },
+  { title: "גודל שנתה", mode: "coordinates", section: "view", keywords: "רשת יחידות קנה מידה", definition: "הערך של המרווח בין שנתות סמוכות על הצירים.", instruction: "פתחו תצוגה והגדרות והקלידו ערך חיובי בשדה גודל שנתה." },
+  { title: "הצמדה לרשת", mode: "coordinates", section: "view", keywords: "נקודות דיוק", definition: "מיקום נקודות על מפגשי קווי הרשת בעת יצירתן או גרירתן.", instruction: "הפעילו או כבו את המתג הצמדה לרשת בתצוגה והגדרות." },
+  { title: "הצגת רשת", mode: "coordinates", section: "view", keywords: "סריג קווים", definition: "קווי העזר של מערכת הצירים.", instruction: "בתצוגה והגדרות הפעילו או כבו הצגת רשת; הצירים נשלטים בנפרד." },
+  { title: "הצגת צירים ושמותיהם", mode: "coordinates", section: "view", keywords: "ציר אופקי אנכי הסתרה", definition: "ציר x אופקי וציר y אנכי מגדירים את הכיוונים במישור.", instruction: "בתצוגה והגדרות הפעילו או כבו הצגת צירים, ושנו את השמות בשדות שמתחת למתג." },
+  { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגה והגדרות." },
   { title: "פונקציה קווית", mode: "linear", section: "functions", keywords: "גרף ישר משוואה שיפוע", definition: "פונקציה מהצורה y=mx+b שהגרף שלה הוא ישר.", instruction: "פתחו גרפים ופונקציות, לחצו הוספת פונקציה, הזינו משוואה ואשרו." },
   { title: "פונקציה ריבועית וכללית", mode: "graphs", section: "functions", keywords: "פרבולה גרפים משוואה", definition: "פונקציה ריבועית כוללת איבר x²; פונקציה כללית יכולה לכלול גם ביטויים אחרים.", instruction: "בסביבת גרפים ופונקציות פתחו הוספת פונקציה, הקלידו למשל y=x^2 ואשרו." },
   { title: "מחוון דינמי", mode: "graphs", section: "sliders", keywords: "משתנה פרמטר הזזה אנימציה", definition: "משתנה שאפשר לשנות את ערכו כדי לראות כיצד פונקציה תלויה בו.", instruction: "פתחו מחוונים דינמיים, הגדירו אות, ערך, טווח וצעד, ולחצו הוספת מחוון. השתמשו באות במשוואת הפונקציה." },
@@ -3628,7 +3628,7 @@ export default function CoordinateWorkspace() {
             <div className="help-results">
               {matchingHelp.map((entry) => (
                 <article className="help-result" key={entry.title}>
-                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "מדידה ובניות", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגת המישור", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
+                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "מדידה ובניות", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגה והגדרות", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
                   <p><b>מה זה?</b> {entry.definition}</p>
                   <p><b>איך משתמשים?</b> {entry.instruction}</p>
                   <button onClick={() => openHelpTool(entry)}>מעבר ←</button>
@@ -3696,8 +3696,10 @@ export default function CoordinateWorkspace() {
               </button>
             </div>
           </div>
+          <div className="workspace-setup">
+            <div className="workspace-setup-title">סביבת עבודה</div>
           <ToolSection
-            title="תצוגת המישור"
+            title="תצוגה והגדרות"
             open={sections.view}
             onToggle={() => toggleSection("view")}
           >
@@ -3803,6 +3805,7 @@ export default function CoordinateWorkspace() {
               <small>לאחר הלחיצה, לחצו במקום הרצוי על מערכת הצירים.</small>
             </div>
           </ToolSection>
+          </div>
           {shapeTools.length > 0 && (
             <>
               <ToolSection

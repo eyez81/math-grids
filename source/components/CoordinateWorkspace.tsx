@@ -3658,7 +3658,6 @@ export default function CoordinateWorkspace() {
             </button>
           </div>
           <div className="workspace-controls">
-            <button className="help-side-button" onClick={() => setHelpOpen(true)}>⌕ עזרה וחיפוש כלים</button>
             <label className="field-label" htmlFor="workspace-mode">
               סביבת עבודה
             </label>

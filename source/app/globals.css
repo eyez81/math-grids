@@ -825,7 +825,6 @@ select {
   text-align: center;
   white-space: nowrap;
 }
-.help-side-button { display: none; width: 100%; margin-bottom: 12px; padding: 9px; border: 1px solid #b9d6d8; border-radius: 9px; background: #fff; color: #087b7d; font-weight: 700; cursor: pointer; }
 .help-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: #102b49a6; }
 .help-dialog { direction: rtl; width: min(560px, 100%); max-height: min(80vh, 740px); display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 18px; background: #fff; box-shadow: 0 16px 50px #102b4933; }
 .help-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -844,7 +843,13 @@ select {
   margin: 13px 0;
 }
 @media (max-width: 700px) {
-  .help-side-button { display: block; }
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .top-actions { display: flex; grid-column: 2; justify-self: center; }
+  .top-actions .history-action,
+  .top-actions .view-reset,
+  .top-actions .export-action { display: none; }
+  .top-actions > button:first-child { font-size: 0; padding: 0 9px; }
+  .top-actions > button:first-child::before { content: "⌕ עזרה"; font-size: 13px; }
   .brand img {
     width: 126px;
     max-height: 44px;
@@ -1318,10 +1323,10 @@ select {
     display: none;
   }
   .topbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr auto;
   }
   .top-actions {
-    display: none;
+    display: flex;
   }
   .workspace {
     grid-template-columns: 1fr;

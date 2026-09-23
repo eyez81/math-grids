@@ -678,6 +678,7 @@ export default function CoordinateWorkspace() {
     [rightOpen, setRightOpen] = useState(true),
     [helpOpen, setHelpOpen] = useState(false),
     [helpQuery, setHelpQuery] = useState(""),
+    [toolHint, setToolHint] = useState<{ entry: HelpEntry; left: number; top: number } | null>(null),
     [sections, setSections] = useState<Record<string, boolean>>(
       MODE_DEFAULT_SECTIONS.coordinates,
     );
@@ -724,7 +725,14 @@ export default function CoordinateWorkspace() {
   };
   const chooseTool = (next: Tool) => {
     setTool(next);
+    setToolHint(null);
     resetPending();
+  };
+  const showToolHint = (next: Tool, button: HTMLButtonElement) => {
+    const entry = HELP_ENTRIES.find((item) => item.tool === next && item.title === TOOL_META[next].label);
+    if (!entry) return;
+    const rect = button.getBoundingClientRect();
+    setToolHint({ entry, left: Math.max(8, rect.left - 278), top: Math.max(8, Math.min(rect.top, window.innerHeight - 150)) });
   };
   const openHelpTool = (entry: HelpEntry) => {
     if (!entry.keepMode && mode !== entry.mode) {
@@ -3658,7 +3666,7 @@ export default function CoordinateWorkspace() {
             <div className="help-results">
               {matchingHelp.map((entry) => (
                 <article className="help-result" key={entry.title}>
-                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "מדידה ובניות", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגה והגדרות", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
+                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "בניות עזר", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגה והגדרות", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
                   <p><b>מה זה?</b> {entry.definition}</p>
                   <p><b>איך משתמשים?</b> {entry.instruction}</p>
                   <button onClick={() => openHelpTool(entry)}>מעבר ←</button>
@@ -3667,6 +3675,13 @@ export default function CoordinateWorkspace() {
               {matchingHelp.length === 0 && <p className="help-empty">לא נמצא כלי מתאים. נסו לחפש בשם פעולה אחר.</p>}
             </div>
           </section>
+        </div>
+      )}
+      {toolHint && !helpOpen && (
+        <div id="tool-hint" className="tool-hint" role="tooltip" dir="rtl" style={{ left: toolHint.left, top: toolHint.top }}>
+          <strong>{toolHint.entry.title}</strong>
+          <p>{toolHint.entry.definition}</p>
+          <p><b>איך בונים?</b> {toolHint.entry.instruction}</p>
         </div>
       )}
       {feedback && (
@@ -3859,6 +3874,11 @@ export default function CoordinateWorkspace() {
                       key={t}
                       className={tool === t ? "active" : ""}
                       onClick={() => chooseTool(t)}
+                      onMouseEnter={(event) => showToolHint(t, event.currentTarget)}
+                      onMouseLeave={() => setToolHint(null)}
+                      onFocus={(event) => showToolHint(t, event.currentTarget)}
+                      onBlur={() => setToolHint(null)}
+                      aria-describedby={toolHint?.entry.tool === t ? "tool-hint" : undefined}
                     >
                       {SHAPE_ICON_FILES[t] ? (
                         <img className="tool-icon" src={`/math-grids/tool-icons/${SHAPE_ICON_FILES[t]}`} alt="" aria-hidden="true" />
@@ -3877,7 +3897,7 @@ export default function CoordinateWorkspace() {
               </ToolSection>
               {constructionTools.length > 0 && (
                 <ToolSection
-                  title={mode === "linear" ? "ישרים ובניות" : "מדידה ובניות"}
+                  title="בניות עזר"
                   open={sections.constructions}
                   onToggle={() => toggleSection("constructions")}
                 >
@@ -3887,6 +3907,11 @@ export default function CoordinateWorkspace() {
                         key={t}
                         className={tool === t ? "active" : ""}
                         onClick={() => chooseTool(t)}
+                        onMouseEnter={(event) => showToolHint(t, event.currentTarget)}
+                        onMouseLeave={() => setToolHint(null)}
+                        onFocus={(event) => showToolHint(t, event.currentTarget)}
+                        onBlur={() => setToolHint(null)}
+                        aria-describedby={toolHint?.entry.tool === t ? "tool-hint" : undefined}
                       >
                         <ToolIcon tool={t} />
                         <span className="tool-label">{TOOL_META[t].label}</span>

@@ -782,7 +782,7 @@ export default function CoordinateWorkspace() {
         script = existing ?? document.createElement("script");
       script.addEventListener("load", build);
       if (!existing) {
-        script.src = "./math-keyboard.js";
+        script.src = "./math-keyboard.js?v=menu-position-1";
         script.dataset.mathKeyboard = "true";
         document.head.appendChild(script);
       }

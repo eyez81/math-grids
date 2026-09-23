@@ -520,6 +520,25 @@
       field.removeExtraneousParentheses = true;
       field.mathVirtualKeyboardPolicy = 'manual'; // מבטל את המקלדת המובנית של MathLive
 
+      // MathLive places this menu relative to the viewport. In the RTL dialog
+      // its default right inset can move it outside the keyboard panel.
+      const menuToggle = field.shadowRoot?.querySelector('[part="menu-toggle"]');
+      menuToggle?.addEventListener('pointerdown', () => {
+        requestAnimationFrame(() => {
+          const menu = field.shadowRoot?.querySelector('.ui-menu-container');
+          if (!menu) return;
+          const toggleRect = menuToggle.getBoundingClientRect();
+          const boxRect = fieldBox.getBoundingClientRect();
+          const menuWidth = menu.getBoundingClientRect().width;
+          const menuHeight = menu.getBoundingClientRect().height;
+          const left = Math.max(boxRect.left, Math.min(toggleRect.right - menuWidth, boxRect.right - menuWidth));
+          const top = Math.max(8, Math.min(boxRect.bottom + 4, window.innerHeight - menuHeight - 8));
+          menu.style.setProperty('right', 'auto', 'important');
+          menu.style.setProperty('left', `${Math.round(left)}px`, 'important');
+          menu.style.setProperty('top', `${Math.round(top)}px`, 'important');
+        });
+      }, true);
+
       if (initialValue) field.value = initialValue;
       if (this.hasAttribute('placeholder')) {
         field.setAttribute('placeholder', '\\text{' + this.getAttribute('placeholder') + '}');

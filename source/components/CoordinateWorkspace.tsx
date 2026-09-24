@@ -4586,7 +4586,7 @@ export default function CoordinateWorkspace() {
                       title={
                         o.type === "function"
                           ? o.expression
-                          : objectSummary(o, objects)
+                          : objectSummary(o.type === "point" ? pointById(o.id) ?? o : o, objects)
                       }
                     >
                       {o.type === "function" ? (
@@ -4594,7 +4594,7 @@ export default function CoordinateWorkspace() {
                       ) : o.type === "slider" ? (
                         objectSummary(o, objects)
                       ) : (
-                        objectSummary(o, objects)
+                        objectSummary(o.type === "point" ? pointById(o.id) ?? o : o, objects)
                       )}
                     </span>
                   </button>

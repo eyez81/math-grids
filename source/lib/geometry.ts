@@ -16,7 +16,9 @@ export type PointObject = {
   labelOffsets?: LabelOffsets;
   dependency?:
     | { kind: "midpoint"; aId: string; bId: string }
-    | { kind: "function"; functionId: string; x: number };
+    | { kind: "function"; functionId: string; x: number }
+    | { kind: "onLine"; sourceId: string; t: number; aId?: string; bId?: string }
+    | { kind: "onCircle"; sourceId: string; angle: number };
 };
 
 export type SegmentObject = {

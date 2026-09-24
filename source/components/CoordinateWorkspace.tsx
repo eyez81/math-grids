@@ -50,6 +50,7 @@ type Mode =
 type FunctionKind = "linear" | "quadratic" | "general";
 type ConstructionPoint = Point & {
   pointId?: string;
+  dependency?: PointObject["dependency"];
   name?: string;
   functionId?: string;
 };
@@ -628,7 +629,9 @@ export default function CoordinateWorkspace() {
     labelHitboxesRef = useRef<LabelHitbox[]>([]),
     textHitboxesRef = useRef<TextHitbox[]>([]);
   const keyboardFieldRef = useRef<MathKeyboardElement | null>(null),
-    dragStartObjectsRef = useRef<MathObject[] | null>(null);
+    dragStartObjectsRef = useRef<MathObject[] | null>(null),
+    segmentResolverRef = useRef<((o: SegmentObject) => { a: Point; b: Point }) | null>(null),
+    circleResolverRef = useRef<((o: CircleObject) => { center: Point; r: number }) | null>(null);
   const [objects, setObjects] = useState<MathObject[]>([]),
     [history, setHistory] = useState<MathObject[][]>([]),
     [future, setFuture] = useState<MathObject[][]>([]);
@@ -643,6 +646,11 @@ export default function CoordinateWorkspace() {
     }),
     [gridStep, setGridStep] = useState(1),
     [gridStepInput, setGridStepInput] = useState("1");
+  const [xTickStep, setXTickStep] = useState(1),
+    [yTickStep, setYTickStep] = useState(1),
+    [xTickInput, setXTickInput] = useState("1"),
+    [yTickInput, setYTickInput] = useState("1"),
+    [xTickLabels, setXTickLabels] = useState("");
   const [snap, setSnap] = useState(true),
     [showGrid, setShowGrid] = useState(true),
     [showAxes, setShowAxes] = useState(true),
@@ -894,6 +902,23 @@ export default function CoordinateWorkspace() {
           } catch {}
         }
       }
+      if (raw.dependency?.kind === "onLine") {
+        const { sourceId, aId, bId, t } = raw.dependency;
+        const source = objects.find((o) => o.id === sourceId);
+        const ends = source && (source.type === "segment" || source.type === "line")
+            ? segmentResolverRef.current?.(source)
+            : aId && bId
+              ? { a: pointById(aId, new Set(seen)), b: pointById(bId, new Set(seen)) }
+            : null;
+        if (ends?.a && ends?.b)
+          return { ...raw, x: ends.a.x + t * (ends.b.x - ends.a.x), y: ends.a.y + t * (ends.b.y - ends.a.y) };
+      }
+      if (raw.dependency?.kind === "onCircle") {
+        const dependency = raw.dependency;
+        const source = objects.find((o): o is CircleObject => o.type === "circle" && o.id === dependency.sourceId);
+        const data = source && circleResolverRef.current?.(source);
+        if (data) return { ...raw, x: data.center.x + data.r * Math.cos(dependency.angle), y: data.center.y + data.r * Math.sin(dependency.angle) };
+      }
       return raw;
     },
     [expressionEvaluator, objects],
@@ -977,6 +1002,8 @@ export default function CoordinateWorkspace() {
     },
     [pointById],
   );
+  segmentResolverRef.current = segmentPoints;
+  circleResolverRef.current = circleData;
   const polygonPoints = useCallback(
     (o: PolygonObject) =>
       o.pointIds
@@ -986,17 +1013,17 @@ export default function CoordinateWorkspace() {
   );
   const worldToScreen = useCallback(
     (x: number, y: number, w: number, h: number) => ({
-      x: w / 2 + (x - viewport.centerX) * viewport.scale,
-      y: h / 2 - (y - viewport.centerY) * viewport.scale,
+      x: w / 2 + (x - viewport.centerX) * viewport.scale * gridStep / xTickStep,
+      y: h / 2 - (y - viewport.centerY) * viewport.scale * gridStep / yTickStep,
     }),
-    [viewport],
+    [viewport, gridStep, xTickStep, yTickStep],
   );
   const screenToWorld = useCallback(
     (x: number, y: number, w: number, h: number) => ({
-      x: (x - w / 2) / viewport.scale + viewport.centerX,
-      y: -(y - h / 2) / viewport.scale + viewport.centerY,
+      x: (x - w / 2) * xTickStep / (viewport.scale * gridStep) + viewport.centerX,
+      y: -(y - h / 2) * yTickStep / (viewport.scale * gridStep) + viewport.centerY,
     }),
-    [viewport],
+    [viewport, gridStep, xTickStep, yTickStep],
   );
   const lineAcross = (a: Point, b: Point, w: number, h: number) => {
     const dx = b.x - a.x,
@@ -1097,31 +1124,37 @@ export default function CoordinateWorkspace() {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, w, h);
-    const visibleStep =
-        gridStep * viewport.scale < 28
-          ? gridStep * Math.ceil(28 / (gridStep * viewport.scale))
-          : gridStep,
-      minX = viewport.centerX - w / (2 * viewport.scale),
-      maxX = viewport.centerX + w / (2 * viewport.scale),
-      minY = viewport.centerY - h / (2 * viewport.scale),
-      maxY = viewport.centerY + h / (2 * viewport.scale);
+    const visibleStepFor = (step: number) =>
+        step * viewport.scale * gridStep / step < 28
+          ? step * Math.ceil(28 / (viewport.scale * gridStep))
+          : step,
+      visibleXStep = visibleStepFor(xTickStep),
+      visibleYStep = visibleStepFor(yTickStep),
+      customXLabels = new Map(xTickLabels.split(",").map((entry) => {
+        const separator = entry.indexOf("=");
+        return separator < 0 ? [NaN, ""] as const : [Number(entry.slice(0, separator).trim()), entry.slice(separator + 1).trim()] as const;
+      }).filter(([value, label]) => Number.isFinite(value) && label)),
+      minX = viewport.centerX - w * xTickStep / (2 * viewport.scale * gridStep),
+      maxX = viewport.centerX + w * xTickStep / (2 * viewport.scale * gridStep),
+      minY = viewport.centerY - h * yTickStep / (2 * viewport.scale * gridStep),
+      maxY = viewport.centerY + h * yTickStep / (2 * viewport.scale * gridStep);
     if (showGrid) {
       ctx.strokeStyle = "#e7edf1";
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (
-        let x = Math.floor(minX / visibleStep) * visibleStep;
+        let x = Math.floor(minX / visibleXStep) * visibleXStep;
         x <= maxX;
-        x += visibleStep
+        x += visibleXStep
       ) {
         const p = worldToScreen(x, 0, w, h);
         ctx.moveTo(p.x, 0);
         ctx.lineTo(p.x, h);
       }
       for (
-        let y = Math.floor(minY / visibleStep) * visibleStep;
+        let y = Math.floor(minY / visibleYStep) * visibleYStep;
         y <= maxY;
-        y += visibleStep
+        y += visibleYStep
       ) {
         const p = worldToScreen(0, y, w, h);
         ctx.moveTo(0, p.y);
@@ -1154,24 +1187,24 @@ export default function CoordinateWorkspace() {
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     for (
-      let x = Math.floor(minX / visibleStep) * visibleStep;
+      let x = Math.floor(minX / visibleXStep) * visibleXStep;
       x <= maxX;
-      x += visibleStep
+      x += visibleXStep
     ) {
-      if (Math.abs(x) < 1e-8) continue;
+      if (Math.abs(x) < 1e-8 && !customXLabels.has(0)) continue;
       const p = worldToScreen(x, 0, w, h);
       ctx.beginPath();
       ctx.moveTo(p.x, origin.y - 4);
       ctx.lineTo(p.x, origin.y + 4);
       ctx.stroke();
-      if (showNumbers) ctx.fillText(String(round(x)), p.x, origin.y + 7);
+      if (showNumbers) ctx.fillText(customXLabels.get(round(x, 6)) || String(round(x)), p.x, origin.y + 7);
     }
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     for (
-      let y = Math.floor(minY / visibleStep) * visibleStep;
+      let y = Math.floor(minY / visibleYStep) * visibleYStep;
       y <= maxY;
-      y += visibleStep
+      y += visibleYStep
     ) {
       if (Math.abs(y) < 1e-8) continue;
       const p = worldToScreen(0, y, w, h);
@@ -1255,14 +1288,15 @@ export default function CoordinateWorkspace() {
       .forEach((o) => {
         const { center, r } = circleData(o),
           p = worldToScreen(center.x, center.y, w, h),
-          rp = r * viewport.scale;
+          rp = r * viewport.scale * gridStep / xTickStep,
+          ry = r * viewport.scale * gridStep / yTickStep;
         ctx.save();
         ctx.strokeStyle = o.color;
         ctx.fillStyle = o.color + "20";
         ctx.lineWidth = o.strokeWidth + (o.id === selectedId ? 1.5 : 0);
         ctx.setLineDash(strokeDash(o.strokeStyle));
         ctx.beginPath();
-        ctx.arc(p.x, p.y, rp, 0, Math.PI * 2);
+        ctx.ellipse(p.x, p.y, rp, ry, 0, 0, Math.PI * 2);
         if (o.fill) ctx.fill();
         ctx.stroke();
         ctx.restore();
@@ -1289,7 +1323,7 @@ export default function CoordinateWorkspace() {
         if (o.showCircumference) labels.push(`p=${round(2 * Math.PI * r)}`);
         if (o.showArea) labels.push(`s=${round(Math.PI * r * r)}`);
         if (labels.length)
-          drawLabel(ctx, labels.join(" · "), p.x, p.y - rp - 18, o.color, o.id, "summary");
+          drawLabel(ctx, labels.join(" · "), p.x, p.y - ry - 18, o.color, o.id, "summary");
       });
     objects
       .filter((o): o is FunctionObject => o.type === "function" && !o.hidden)
@@ -1667,6 +1701,9 @@ export default function CoordinateWorkspace() {
     dragging,
     expressionEvaluator,
     gridStep,
+    xTickStep,
+    yTickStep,
+    xTickLabels,
     intersectionCandidates,
     magneticTarget,
     objects,
@@ -1706,8 +1743,8 @@ export default function CoordinateWorkspace() {
   const snapWorld = (p: Point) =>
     snap
       ? {
-          x: round(Math.round(p.x / gridStep) * gridStep, 4),
-          y: round(Math.round(p.y / gridStep) * gridStep, 4),
+          x: round(Math.round(p.x / (gridStep * xTickStep)) * gridStep * xTickStep, 4),
+          y: round(Math.round(p.y / (gridStep * yTickStep)) * gridStep * yTickStep, 4),
         }
       : p;
   const nearestPoint = (sx: number, sy: number, w: number, h: number) =>
@@ -1749,20 +1786,21 @@ export default function CoordinateWorkspace() {
       let d = Infinity;
       if (o.type === "segment" || o.type === "line") {
         const ep = segmentPoints(o);
-        d =
-          distanceToSegment(world, ep.a, ep.b, o.type === "line") *
-          viewport.scale;
+        d = distanceToSegment({ x: sx, y: sy }, worldToScreen(ep.a.x, ep.a.y, w, h), worldToScreen(ep.b.x, ep.b.y, w, h), o.type === "line");
       } else if (o.type === "circle") {
         const c = circleData(o);
-        d = Math.abs(distance(world, c.center) - c.r) * viewport.scale;
+        const length = distance(world, c.center);
+        if (length > 1e-9) {
+          const edge = worldToScreen(c.center.x + (world.x - c.center.x) * c.r / length, c.center.y + (world.y - c.center.y) * c.r / length, w, h);
+          d = Math.hypot(edge.x - sx, edge.y - sy);
+        }
       } else if (o.type === "polygon") {
         const pts = polygonPoints(o);
         pts.forEach(
           (p, i) =>
             (d = Math.min(
               d,
-              distanceToSegment(world, p, pts[(i + 1) % pts.length]) *
-                viewport.scale,
+              distanceToSegment({ x: sx, y: sy }, worldToScreen(p.x, p.y, w, h), worldToScreen(pts[(i + 1) % pts.length].x, pts[(i + 1) % pts.length].y, w, h)),
             )),
         );
       } else if (o.type === "angle") {
@@ -1789,14 +1827,12 @@ export default function CoordinateWorkspace() {
         try {
           const ev = expressionEvaluator(o.expression).evaluate;
           for (
-            let x = world.x - 14 / viewport.scale;
-            x <= world.x + 14 / viewport.scale;
-            x += 1 / viewport.scale
+            let x = world.x - 14 * xTickStep / (viewport.scale * gridStep);
+            x <= world.x + 14 * xTickStep / (viewport.scale * gridStep);
+            x += xTickStep / (viewport.scale * gridStep)
           )
-            d = Math.min(
-              d,
-              Math.hypot(x - world.x, ev(x) - world.y) * viewport.scale,
-            );
+            { const graph = worldToScreen(x, ev(x), w, h);
+              d = Math.min(d, Math.hypot(graph.x - sx, graph.y - sy)); }
         } catch {}
       }
       if (d < bestPx) {
@@ -1925,6 +1961,41 @@ export default function CoordinateWorkspace() {
     }
     return best;
   };
+  const pointOnObject = (objectId: string, target: Point): ConstructionPoint | null => {
+    const source = objects.find((o) => o.id === objectId && !o.hidden);
+    if (!source) return null;
+    if (source.type === "segment" || source.type === "line" || source.type === "polygon") {
+      const edges = source.type === "polygon"
+        ? source.pointIds.map((aId, index) => ({ aId, bId: source.pointIds[(index + 1) % source.pointIds.length] }))
+        : [{ aId: source.aId, bId: source.bId }];
+      const candidates = edges.map(({ aId, bId }) => {
+        const ends = source.type === "polygon"
+          ? { a: pointById(aId), b: pointById(bId) }
+          : segmentPoints(source);
+        if (!ends.a || !ends.b) return null;
+        const dx = ends.b.x - ends.a.x, dy = ends.b.y - ends.a.y;
+        const length = dx * dx + dy * dy;
+        if (length < 1e-12) return null;
+        const raw = ((target.x - ends.a.x) * dx + (target.y - ends.a.y) * dy) / length;
+        const t = source.type === "line" ? raw : Math.max(0, Math.min(1, raw));
+        const x = ends.a.x + t * dx, y = ends.a.y + t * dy;
+        return { x, y, dependency: { kind: "onLine" as const, sourceId: source.id, aId, bId, t }, distance: distance(target, { x, y }) };
+      }).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+      const closest = candidates.sort((a, b) => a.distance - b.distance)[0];
+      return closest ? { x: closest.x, y: closest.y, dependency: closest.dependency } : null;
+    }
+    if (source.type === "circle") {
+      const data = circleData(source), angle = Math.atan2(target.y - data.center.y, target.x - data.center.x);
+      return { x: data.center.x + data.r * Math.cos(angle), y: data.center.y + data.r * Math.sin(angle), dependency: { kind: "onCircle", sourceId: source.id, angle } };
+    }
+    if (source.type === "function") {
+      try {
+        const y = expressionEvaluator(source.expression).evaluate(target.x);
+        if (Number.isFinite(y)) return { x: target.x, y, dependency: { kind: "function", functionId: source.id, x: target.x } };
+      } catch {}
+    }
+    return null;
+  };
   const getOrCreatePoint = (cp: ConstructionPoint, current: MathObject[]) => {
     if (cp.pointId) return { id: cp.pointId, next: current };
     const p: PointObject = {
@@ -1937,9 +2008,9 @@ export default function CoordinateWorkspace() {
       showName: true,
       showCoords: false,
       guides: false,
-      dependency: cp.functionId
+      dependency: cp.dependency ?? (cp.functionId
         ? { kind: "function", functionId: cp.functionId, x: cp.x }
-        : undefined,
+        : undefined),
     };
     return { id: p.id, next: [...current, p] };
   };
@@ -2330,23 +2401,16 @@ export default function CoordinateWorkspace() {
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = pointerPos(e),
       magnet = magneticCandidate(p.x, p.y, p.w, p.h),
-      world =
-        tool === "text"
-          ? screenToWorld(p.x, p.y, p.w, p.h)
-          : magnet?.point ?? snapWorld(screenToWorld(p.x, p.y, p.w, p.h)),
+      rawWorld = screenToWorld(p.x, p.y, p.w, p.h),
+      world = tool === "text" ? rawWorld : snapWorld(rawWorld),
       hitPoint = nearestPoint(p.x, p.y, p.w, p.h),
       hit = nearestObject(p.x, p.y, p.w, p.h),
+      attached = !hitPoint && (tool === "point" || tool === "segment" || tool === "line" || tool === "polygon" || tool === "circle")
+        ? pointOnObject(hit?.id ?? magnet?.objectId ?? "", rawWorld)
+        : null,
       cp: ConstructionPoint = hitPoint
         ? { ...hitPoint, pointId: hitPoint.id }
-        : {
-            ...world,
-            functionId: objects.some(
-              (object) =>
-                object.type === "function" && object.id === magnet?.objectId,
-            )
-              ? magnet?.objectId
-              : undefined,
-          };
+        : attached ?? { ...world };
     setMagneticTarget(magnet?.name ?? null);
     if (tool === "intersection" && intersectionCandidates.length) {
       const candidate = intersectionCandidates.find((item) => {
@@ -2416,7 +2480,7 @@ export default function CoordinateWorkspace() {
         setOpenPropertiesId(hit.id);
         if (
           hit.type === "point" &&
-          (!hit.dependency || hit.dependency.kind === "function")
+          (!hit.dependency || hit.dependency.kind !== "midpoint")
         ) {
           dragStartObjectsRef.current = objects;
           setDragging({
@@ -2459,8 +2523,8 @@ export default function CoordinateWorkspace() {
         type: "text",
         name: `טקסט ${objects.filter((o) => o.type === "text").length + 1}`,
         text: value,
-        x: world.x,
-        y: world.y,
+        x: cp.x,
+        y: cp.y,
         fontSize: textSize,
         bold: textBold,
         color: COLORS[5],
@@ -2477,15 +2541,15 @@ export default function CoordinateWorkspace() {
         id: uid(),
         type: "point",
         name: nextPointName(objects),
-        x: world.x,
-        y: world.y,
+        x: cp.x,
+        y: cp.y,
         color: COLORS[0],
         showName: true,
         showCoords: true,
         guides: false,
-        dependency: cp.functionId
+        dependency: cp.dependency ?? (cp.functionId
           ? { kind: "function", functionId: cp.functionId, x: cp.x }
-          : undefined,
+          : undefined),
       };
       pushObjects([...objects, o]);
       setSelectedId(o.id);
@@ -2978,7 +3042,7 @@ export default function CoordinateWorkspace() {
       world =
         dragging?.kind === "text"
           ? screenToWorld(p.x, p.y, p.w, p.h)
-          : magnet?.point ?? snapWorld(screenToWorld(p.x, p.y, p.w, p.h));
+          : snapWorld(screenToWorld(p.x, p.y, p.w, p.h));
     setMagneticTarget(magnet?.name ?? null);
     setPointer(world);
     if (!dragging) return;
@@ -2988,10 +3052,10 @@ export default function CoordinateWorkspace() {
         ...dragging.origin,
         centerX:
           dragging.origin.centerX -
-          (e.clientX - dragging.sx) / dragging.origin.scale,
+          (e.clientX - dragging.sx) * xTickStep / (dragging.origin.scale * gridStep),
         centerY:
           dragging.origin.centerY +
-          (e.clientY - dragging.sy) / dragging.origin.scale,
+          (e.clientY - dragging.sy) * yTickStep / (dragging.origin.scale * gridStep),
       });
     } else if (
       dragging.kind === "label" &&
@@ -3033,6 +3097,11 @@ export default function CoordinateWorkspace() {
                   y: world.y,
                   dependency: { ...o.dependency, x: world.x },
                 }
+              : o.dependency?.kind === "onLine" || o.dependency?.kind === "onCircle"
+                ? (() => {
+                    const constrained = pointOnObject(o.dependency.sourceId, screenToWorld(p.x, p.y, p.w, p.h));
+                    return constrained ? { ...o, x: constrained.x, y: constrained.y, dependency: constrained.dependency } : o;
+                  })()
               : { ...o, x: world.x, y: world.y }
             : o.id === dragging.id && o.type === "text"
               ? { ...o, x: world.x, y: world.y }
@@ -3343,7 +3412,11 @@ export default function CoordinateWorkspace() {
               o.dependency &&
                 (o.dependency.kind === "midpoint"
                   ? ids.has(o.dependency.aId) || ids.has(o.dependency.bId)
-                  : ids.has(o.dependency.functionId)),
+                  : o.dependency.kind === "function"
+                    ? ids.has(o.dependency.functionId)
+                    : ids.has(o.dependency.sourceId) ||
+                      (o.dependency.kind === "onLine" &&
+                        Boolean((o.dependency.aId && ids.has(o.dependency.aId)) || (o.dependency.bId && ids.has(o.dependency.bId))))),
             )) ||
           (o.type === "angle" &&
             [o.aId, o.vertexId, o.cId].some((id) => ids.has(id))) ||
@@ -3567,6 +3640,11 @@ export default function CoordinateWorkspace() {
     setViewport({ centerX: 0, centerY: 0, scale: scaleForGridStep(1) });
     setGridStep(1);
     setGridStepInput("1");
+    setXTickStep(1);
+    setYTickStep(1);
+    setXTickInput("1");
+    setYTickInput("1");
+    setXTickLabels("");
   };
   const applyGridStep = (raw: string) => {
     const v = Number(raw);
@@ -3575,6 +3653,16 @@ export default function CoordinateWorkspace() {
       setGridStepInput(String(v));
       setViewport((x) => ({ ...x, scale: scaleForGridStep(v) }));
     } else setGridStepInput(String(gridStep));
+  };
+  const applyAxisStep = (raw: string, axis: "x" | "y") => {
+    const value = Number(raw);
+    const current = axis === "x" ? xTickStep : yTickStep;
+    const setValue = axis === "x" ? setXTickStep : setYTickStep;
+    const setInput = axis === "x" ? setXTickInput : setYTickInput;
+    if (Number.isFinite(value) && value > 0) {
+      setValue(value);
+      setInput(String(value));
+    } else setInput(String(current));
   };
   const shapeTools = MODE_SHAPE_TOOLS[mode],
     constructionTools = MODE_CONSTRUCTION_TOOLS[mode],
@@ -3752,7 +3840,7 @@ export default function CoordinateWorkspace() {
           >
             <div className="grid-step-control">
               <div className="step-row">
-                <span>גודל שנתה</span>
+                <span>מרווח הצמדה</span>
                 <input
                   type="number"
                   min="0.0001"
@@ -3762,6 +3850,10 @@ export default function CoordinateWorkspace() {
                   onBlur={(e) => applyGridStep(e.target.value)}
                 />
               </div>
+            </div>
+            <div className="axis-step-fields">
+              <label>קפיצות בציר X<input type="number" min="0.0001" step="any" value={xTickInput} onChange={(e) => setXTickInput(e.target.value)} onBlur={(e) => applyAxisStep(e.target.value, "x")} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label>
+              <label>קפיצות בציר Y<input type="number" min="0.0001" step="any" value={yTickInput} onChange={(e) => setYTickInput(e.target.value)} onBlur={(e) => applyAxisStep(e.target.value, "y")} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label>
             </div>
             <label className="toggle">
               <input
@@ -3790,6 +3882,9 @@ export default function CoordinateWorkspace() {
               <label>שם הציר האופקי<input value={xAxisName} onChange={(e) => setXAxisName(e.target.value)} /></label>
               <label>שם הציר האנכי<input value={yAxisName} onChange={(e) => setYAxisName(e.target.value)} /></label>
             </div>
+            <label className="axis-custom-label">שעות או תוויות בציר X (לא חובה)
+              <input dir="ltr" placeholder="0=08:00, 1=09:00, 2=10:00" value={xTickLabels} onChange={(e) => setXTickLabels(e.target.value)} />
+            </label>
             <label className="toggle">
               <input
                 type="checkbox"

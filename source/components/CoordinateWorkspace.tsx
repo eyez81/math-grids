@@ -1197,7 +1197,8 @@ export default function CoordinateWorkspace() {
       ctx.moveTo(p.x, origin.y - 4);
       ctx.lineTo(p.x, origin.y + 4);
       ctx.stroke();
-      if (showNumbers) ctx.fillText(customXLabels.get(round(x, 6)) || String(round(x)), p.x, origin.y + 7);
+      if (showNumbers && (!customXLabels.size || customXLabels.has(round(x, 6))))
+        ctx.fillText(customXLabels.get(round(x, 6)) || String(round(x)), p.x, origin.y + 7);
     }
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";

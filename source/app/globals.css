@@ -2033,6 +2033,7 @@ select {
 
 /* Consistent action sizes and a compact second row on tablets. */
 .top-actions { align-items: center; gap: 8px; }
+.topbar { grid-template-columns: minmax(150px, 1fr) auto minmax(684px, 1fr); column-gap: 18px; }
 .top-actions > button { height: 42px; min-height: 42px; min-width: 140px; padding: 0 14px; border-color: #bfd4d9; color: #193e48; background: #f8fbfc; font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 2px #16363f12; }
 .top-actions > button:hover:not(:disabled) { border-color: #69a7a4; background: #edf8f7; }
 .top-actions > button.history-action { width: 42px; min-width: 42px; padding: 0; }
@@ -2045,7 +2046,7 @@ select {
   .top-actions > button.view-reset, .top-actions > button.export-action { width: 42px; min-width: 42px; padding: 0; font-size: 0; }
   .top-actions > button.view-reset::before, .top-actions > button.export-action::before { font-size: 18px; }
 }
-@media (min-width: 701px) and (max-width: 950px) {
+@media (min-width: 701px) and (max-width: 1100px) {
   .app-shell { grid-template-rows: 102px auto minmax(0, 1fr); }
   .topbar { grid-template-columns: 1fr 1fr; grid-template-rows: 47px 47px; padding: 4px 14px; }
   .brand { grid-column: 1; grid-row: 1; }
@@ -2053,4 +2054,9 @@ select {
   .top-actions { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
   .top-actions .view-reset, .top-actions .export-action { width: 42px; min-width: 42px; }
   .objects-panel { top: 102px; }
+}
+@media (max-width: 700px) {
+  .topbar { grid-template-columns: auto 1fr auto; column-gap: 8px; }
+  .top-actions { display: none; }
+  .mobile-panel { grid-column: 3; }
 }

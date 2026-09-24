@@ -221,12 +221,12 @@ const MODE_CONSTRUCTION_TOOLS: Record<Mode, Tool[]> = {
 };
 
 const MODE_DEFAULT_SECTIONS: Record<Mode, Record<string, boolean>> = {
-  coordinates: { general: true, view: false, shapes: true, constructions: false, functions: false, sliders: false, transform: false },
-  shapes: { general: true, view: false, shapes: true, constructions: false, functions: false, sliders: false, transform: false },
-  measurement: { general: true, view: false, shapes: false, constructions: true, functions: false, sliders: false, transform: false },
-  linear: { general: true, view: false, shapes: false, constructions: false, functions: true, sliders: false, transform: false },
-  graphs: { general: true, view: false, shapes: false, constructions: false, functions: true, sliders: false, transform: false },
-  advanced: { general: true, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: true },
+  coordinates: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
+  shapes: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
+  measurement: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
+  linear: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
+  graphs: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
+  advanced: { general: false, view: false, shapes: false, constructions: false, functions: false, sliders: false, transform: false },
 };
 const FUNCTION_COPY: Record<
   FunctionKind,
@@ -304,7 +304,7 @@ type HelpEntry = {
   tool?: Tool;
   mode: Mode;
   keepMode?: boolean;
-  section: "shapes" | "constructions" | "text" | "view" | "functions" | "sliders" | "transform";
+  section: "shapes" | "constructions" | "text" | "view" | "functions" | "sliders" | "transform" | "objects";
   keywords: string;
   definition: string;
   instruction: string;
@@ -329,15 +329,19 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "טקסט חופשי", tool: "text", mode: "coordinates", section: "text", keywords: "כיתוב הערה", definition: "כיתוב המוצג במיקום שתבחרו במישור.", instruction: "פתחו טקסט והערות, כתבו את הטקסט ואז לחצו במישור כדי למקם אותו." },
   { title: "בחירה וגרירה", tool: "select", mode: "coordinates", section: "shapes", keywords: "הזזה עריכה מאפיינים", definition: "כלי לבחירת אובייקט, שינוי מאפייניו והזזת נקודות או טקסט.", instruction: "בחרו אובייקט כדי לפתוח את מאפייניו. גררו נקודה או טקסט כדי להזיז אותם." },
   { title: "הזזת מישור", tool: "pan", mode: "coordinates", section: "view", keywords: "תנועה גרירה תצוגה", definition: "שינוי האזור הנראה במישור בלי לשנות את מיקום האובייקטים ביחס לצירים.", instruction: "בחרו הזזת מישור וגררו את הרקע. התקרבו והתרחקו בעזרת גלגלת העכבר או פקדי התצוגה." },
-  { title: "גודל שנתה", mode: "coordinates", section: "view", keywords: "רשת יחידות קנה מידה", definition: "הערך של המרווח בין שנתות סמוכות על הצירים.", instruction: "פתחו תצוגה והגדרות והקלידו ערך חיובי בשדה גודל שנתה." },
+  { title: "מרווח הצמדה", mode: "coordinates", keepMode: true, section: "view", keywords: "גודל שנתה רשת יחידות קנה מידה", definition: "המרווח ביחידות בין מיקומים שאליהם נקודות נצמדות כאשר ההצמדה לרשת פעילה.", instruction: "פתחו תצוגה והגדרות והקלידו ערך חיובי בשדה מרווח הצמדה." },
   { title: "הצמדה לרשת", mode: "coordinates", section: "view", keywords: "נקודות דיוק", definition: "מיקום נקודות על מפגשי קווי הרשת בעת יצירתן או גרירתן.", instruction: "הפעילו או כבו את המתג הצמדה לרשת בתצוגה והגדרות." },
   { title: "הצגת רשת", mode: "coordinates", section: "view", keywords: "סריג קווים", definition: "קווי העזר של מערכת הצירים.", instruction: "בתצוגה והגדרות הפעילו או כבו הצגת רשת; הצירים נשלטים בנפרד." },
   { title: "הצגת צירים ושמותיהם", mode: "coordinates", section: "view", keywords: "ציר אופקי אנכי הסתרה", definition: "ציר x אופקי וציר y אנכי מגדירים את הכיוונים במישור.", instruction: "בתצוגה והגדרות הפעילו או כבו הצגת צירים, ושנו את השמות בשדות שמתחת למתג." },
   { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגה והגדרות." },
+  { title: "קפיצות נפרדות בצירים", mode: "coordinates", keepMode: true, section: "view", keywords: "ציר x ציר y שנתות מרווח סולם", definition: "אפשר לבחור מרווח מספרי שונה בין שנתות ציר X ובין שנתות ציר Y.", instruction: "בתצוגה והגדרות הזינו ערכים חיוביים בשדות קפיצות בציר X וקפיצות בציר Y, למשל 1 ו־10." },
+  { title: "תוויות מותאמות לצירים", mode: "coordinates", keepMode: true, section: "view", keywords: "שעות קילומטרים ערכים מותאמים טבלה ציר איקס וואי גרף", definition: "כיתובים אישיים במקום מספרים על שנתות מסוימות, כגון שעה בציר האופקי או מרחק בציר האנכי.", instruction: "פתחו תצוגה והגדרות ואז תוויות מותאמות לצירים. בחרו X או Y, הגדירו טווח ומלאו כיתוב לצד הערכים הרצויים בטבלה. השאירו שורה ריקה כדי להציג את המספר הרגיל." },
+  { title: "שם הציר האופקי והאנכי", mode: "coordinates", keepMode: true, section: "view", keywords: "כותרת צירים יחידות שעות קמ x y", definition: "שם קצר המתאר מה נמדד לאורך כל ציר.", instruction: "בתצוגה והגדרות כתבו שם בשדות שם הציר האופקי ושם הציר האנכי; אפשר לשלב עם תוויות מותאמות לשנתות." },
   { title: "פונקציה קווית", mode: "linear", section: "functions", keywords: "גרף ישר משוואה שיפוע", definition: "פונקציה מהצורה y=mx+b שהגרף שלה הוא ישר.", instruction: "פתחו גרפים ופונקציות, לחצו הוספת פונקציה, הזינו משוואה ואשרו." },
   { title: "פונקציה ריבועית וכללית", mode: "graphs", section: "functions", keywords: "פרבולה גרפים משוואה", definition: "פונקציה ריבועית כוללת איבר x²; פונקציה כללית יכולה לכלול גם ביטויים אחרים.", instruction: "בסביבת גרפים ופונקציות פתחו הוספת פונקציה, הקלידו למשל y=x^2 ואשרו." },
   { title: "שרטוט גרף חופשי", tool: "sketch", mode: "graphs", section: "functions", keywords: "ציור ביד חופשית עקומה ישר פרבולה גרירה נקודה על גרף", definition: "גרף מצויר המתאר קשר חזותי בין גדלים. לשרטוט חופשי אין משוואה מחושבת.", instruction: "בחרו שרטוט גרף חופשי וגררו במישור בעזרת העכבר או האצבע. בסיום משיכה שמתאימה לישר או לפרבולה תתיישר לצורה; צורות אחרות יוחלקו. בכלי נקודה לחצו על השרטוט כדי להצמיד אליו נקודה. עברו לבחירה כדי להזיז או למחוק את השרטוט." },
   { title: "מחוון דינמי", mode: "graphs", section: "sliders", keywords: "משתנה פרמטר הזזה אנימציה", definition: "משתנה שאפשר לשנות את ערכו כדי לראות כיצד פונקציה תלויה בו.", instruction: "פתחו מחוונים דינמיים, הגדירו אות, ערך, טווח וצעד, ולחצו הוספת מחוון. השתמשו באות במשוואת הפונקציה." },
+  { title: "מקלדת מתמטית", mode: "graphs", section: "functions", keywords: "משוואה נוסחה שורש חזקה שבר תפריט", definition: "מקלדת להזנת מספרים, משתנים וסימנים בעת הוספת פונקציה.", instruction: "פתחו הוספת פונקציה, הזינו משוואה בשדה או השתמשו במקשי המקלדת שמתחתיו; תפריט שלושת הקווים בשדה מציע מבנים נוספים." },
   { title: "הזזה", mode: "advanced", section: "transform", keywords: "טרנספורמציה העתקה וקטור", definition: "העברת כל נקודה באותו מרחק ובאותו כיוון: (x,y) הופך ל־(x+Δx,y+Δy).", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו Δx ו־Δy ולחצו הזזה. נוצר עותק מוזז." },
   { title: "סיבוב סביב הראשית", mode: "advanced", section: "transform", keywords: "טרנספורמציה זווית", definition: "סיבוב צורה סביב הנקודה (0,0) בזווית נתונה.", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו זווית במעלות ולחצו סיבוב סביב הראשית." },
   { title: "שיקוף בציר x", mode: "advanced", section: "transform", keywords: "טרנספורמציה תמונת מראה", definition: "תמונת מראה ביחס לציר האופקי: (x,y) הופך ל־(x,−y).", instruction: "בחרו אובייקט, פתחו טרנספורמציות ולחצו שיקוף בציר x." },
@@ -345,7 +349,21 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "שיקוף ב־y=x", mode: "advanced", section: "transform", keywords: "טרנספורמציה תמונת מראה", definition: "תמונת מראה ביחס לישר y=x: שיעורי הנקודה מתחלפים.", instruction: "בחרו אובייקט, פתחו טרנספורמציות ולחצו שיקוף ב־y=x." },
   { title: "זום והתקרבות", mode: "coordinates", keepMode: true, section: "view", keywords: "הגדלה הקטנה פלוס מינוס", definition: "שינוי גודל התצוגה של המישור ללא שינוי שיעורי הנקודות.", instruction: "השתמשו בכפתורי + ו־− שליד אחוז התצוגה במישור." },
   { title: "איפוס תצוגה", mode: "coordinates", keepMode: true, section: "view", keywords: "מרכוז התאמה", definition: "התאמת המבט במישור לאובייקטים הקיימים.", instruction: "לחצו איפוס תצוגה בכותרת. האובייקטים עצמם אינם נמחקים." },
-  { title: "רשימת אובייקטים ומאפיינים", mode: "coordinates", keepMode: true, section: "view", keywords: "צבע עובי הסתרה מדידות מחיקה", definition: "הרשימה מציגה את הפריטים שנוצרו ומאפשרת לערוך כל אחד מהם.", instruction: "בחרו פריט ברשימת אובייקטים כדי לפתוח מאפיינים; לחצו על סימון הנראות כדי להסתיר או להציג אותו." },
+  { title: "רשימת אובייקטים ומאפיינים", mode: "coordinates", keepMode: true, section: "objects", keywords: "צבע עובי הסתרה מדידות מחיקה", definition: "הרשימה מציגה את הפריטים שנוצרו ומאפשרת לערוך כל אחד מהם.", instruction: "בחרו פריט ברשימת האובייקטים בצד המישור כדי לפתוח את מאפייניו. אפשר לפתוח ולסגור כל פריט ברשימה." },
+  { title: "נקודה על אובייקט", mode: "coordinates", keepMode: true, section: "shapes", keywords: "הצמדה קטע ישר מעגל פונקציה גרף משורטט תלות", definition: "נקודה התלויה באובייקט אחר ונשארת עליו גם כשהיא זזה.", instruction: "בחרו כלי נקודה ולחצו ישירות על קטע, ישר, צלע, מעגל, גרף פונקציה או גרף משורטט. גררו את הנקודה בכלי בחירה כדי להזיזה לאורך האובייקט." },
+  { title: "שם וצביעה של אובייקט", mode: "coordinates", keepMode: true, section: "objects", keywords: "שם שינוי שם צבע פלטה", definition: "שם וצבע מבחינים בין פריטים במישור וברשימת האובייקטים.", instruction: "בחרו אובייקט ברשימה. ערכו את שמו אם השדה פתוח לעריכה, ובחרו צבע בעיגולי הצבע במאפיינים. שמות הנגזרים מנקודות הבנייה מוצגים לקריאה בלבד." },
+  { title: "עובי וסגנון קו", mode: "coordinates", keepMode: true, section: "objects", keywords: "עובי סגנון רציף מקווקו מנוקד קו", definition: "העובי וסגנון המשיכה קובעים את מראה האובייקט.", instruction: "פתחו מאפיינים של קו או צורה ברשימת האובייקטים ובחרו עובי וסגנון: רציף, מקווקו או מנוקד." },
+  { title: "הצגה, הסתרה ומחיקה", mode: "coordinates", keepMode: true, section: "objects", keywords: "נראות להציג להסתיר למחוק אובייקט", definition: "אפשר להסיר פריט מהתצוגה בלי למחוק אותו, או למחוק אותו לגמרי.", instruction: "במאפייני האובייקט הפעילו או כבו הצגת האובייקט במישור. למחיקה לחצו מחיקת האובייקט בתחתית המאפיינים." },
+  { title: "מאפייני נקודה", mode: "coordinates", keepMode: true, section: "objects", keywords: "שיעורים קואורדינטות x y שם קווי עזר", definition: "נקודה יכולה להציג שם, שיעורים וקווי עזר לצירים.", instruction: "בחרו נקודה ברשימה וערכו X ו־Y כאשר אינם תלויים באובייקט אחר. הפעילו בנפרד הצגת שם, הצגת שיעורים וקווי עזר לצירים." },
+  { title: "מאפייני קטע וישר", mode: "shapes", keepMode: true, section: "objects", keywords: "אורך שיפוע משוואת הישר תווית קטע", definition: "קטע מציג את אורכו ושיפועו; ישר יכול להציג שיפוע ומשוואת ישר.", instruction: "פתחו את מאפייני הקטע או הישר ברשימת האובייקטים והפעילו הצגת אורך, שיפוע או משוואת הישר לפי סוגו. הערכים מופיעים לצד המתגים." },
+  { title: "מאפייני זווית", mode: "measurement", keepMode: true, section: "objects", keywords: "מעלות גודל זווית", definition: "גודל הזווית נמדד במעלות.", instruction: "בחרו זווית ברשימת האובייקטים והפעילו או כבו הצגת גודל זווית במאפיינים." },
+  { title: "מאפייני מצולע", mode: "shapes", keepMode: true, section: "objects", keywords: "אורכי צלעות היקף שטח זוויות מילוי", definition: "למצולע אפשר להציג מדידות של צלעות, זוויות, היקף ושטח.", instruction: "בחרו מצולע ברשימת האובייקטים. הפעילו מדידות רצויות לצד הערכים שלהן ובחרו צבע מילוי, עובי וסגנון קו במאפיינים." },
+  { title: "מאפייני מעגל", mode: "measurement", keepMode: true, section: "objects", keywords: "מרכז רדיוס קוטר היקף שטח מילוי", definition: "למעגל יש מרכז ורדיוס, וממנו אפשר לחשב קוטר, היקף ושטח.", instruction: "בחרו מעגל ברשימת האובייקטים והפעילו את המדידות הרצויות. אפשר לערוך רדיוס של מעגל שאינו נקבע על ידי נקודת היקף, ולבחור מילוי ומראה קו." },
+  { title: "עריכת פונקציה ותווית", mode: "graphs", keepMode: true, section: "objects", keywords: "משוואה גרף הצגת תווית עריכה", definition: "המשוואה מגדירה את הגרף וניתן לשנות את הכיתוב המוצג עליו.", instruction: "בחרו פונקציה ברשימת האובייקטים, שנו את המשוואה במאפיינים והפעילו או כבו הצגת תווית הגרף." },
+  { title: "טבלת ערכים ותחום פונקציה", mode: "graphs", keepMode: true, section: "objects", keywords: "טבלה x y נקודות קצה פתוח סגור תחום", definition: "טבלה מראה ערכי פונקציה לדוגמא; תחום מגביל את חלק הגרף המוצג.", instruction: "במאפייני פונקציה פתחו טבלת ערכים, הגדירו גבולות תחום לפי הצורך ובחרו אם קצות התחום פתוחים או סגורים." },
+  { title: "מאפייני גרף משורטט", mode: "graphs", keepMode: true, section: "objects", keywords: "שרטוט חופשי צבע עובי סגנון הזזה", definition: "שרטוט חופשי נשמר כגרף שאפשר לבחור ולעצב.", instruction: "בחרו את השרטוט ברשימת האובייקטים כדי לשנות שם, צבע, עובי, סגנון ונראות; בכלי בחירה גררו אותו במישור." },
+  { title: "עריכת טקסט", mode: "coordinates", keepMode: true, section: "objects", keywords: "הערה גודל גופן מודגש צבע", definition: "טקסט הוא אובייקט שאפשר לשנות לאחר מיקומו.", instruction: "בחרו את הטקסט ברשימת האובייקטים ושנו את התוכן, גודל הגופן, הדגשה, צבע ונראות במאפיינים. אפשר לגרור אותו במישור." },
+  { title: "מאפייני מחוון", mode: "graphs", keepMode: true, section: "objects", keywords: "משתנה טווח מינימום מקסימום צעד ערך הצגה על המישור", definition: "למחוון יש ערך משתנה, טווח וצעד; אפשר להציג אותו על המישור.", instruction: "בחרו מחוון ברשימת האובייקטים כדי לשנות ערך, גבולות, צעד והצגה על המישור. שינוי ערכו מעדכן פונקציות שמשתמשות במשתנה." },
   { title: "ביטול וביצוע מחדש", mode: "coordinates", keepMode: true, section: "view", keywords: "undo redo חזור", definition: "חזרה לפעולה קודמת או החזרת פעולה שבוטלה.", instruction: "השתמשו בשני כפתורי החצים ליד חדש בכותרת." },
   { title: "ייצוא PNG", mode: "coordinates", keepMode: true, section: "view", keywords: "הורדה תמונה שמירה", definition: "שמירת תמונה של המישור והאובייקטים שעליו.", instruction: "לחצו ייצוא PNG בכותרת כדי להוריד תמונה." },
   { title: "דף חדש", mode: "coordinates", keepMode: true, section: "view", keywords: "איפוס הכל התחלה מחדש", definition: "פתיחת מישור עבודה ריק.", instruction: "לחצו + חדש בכותרת כדי להתחיל דף חדש." },
@@ -776,9 +794,13 @@ export default function CoordinateWorkspace() {
   const openHelpTool = (entry: HelpEntry) => {
     if (!entry.keepMode && mode !== entry.mode) {
       setMode(entry.mode);
-      setSections({ ...MODE_DEFAULT_SECTIONS[entry.mode], [entry.section]: true });
-    } else {
+      setSections({ ...MODE_DEFAULT_SECTIONS[entry.mode], ...(entry.section === "objects" ? {} : { [entry.section]: true }) });
+    } else if (entry.section !== "objects") {
       setSections((current) => ({ ...current, [entry.section]: true }));
+    }
+    if (entry.section === "objects") {
+      setLeftOpen(true);
+      if (selectedId) setOpenPropertiesId(selectedId);
     }
     if (entry.tool) chooseTool(entry.tool);
     setRightOpen(true);
@@ -3878,7 +3900,7 @@ export default function CoordinateWorkspace() {
             <div className="help-results">
               {matchingHelp.map((entry) => (
                 <article className="help-result" key={entry.title}>
-                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "בניות עזר", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגה והגדרות", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות" }[entry.section]}</small></div>
+                  <div><strong>{entry.title}</strong><small>{entry.keepMode ? "כל סביבות העבודה" : MODES[entry.mode].label} ← {{ constructions: "בניות עזר", text: "טקסט והערות", shapes: "קטעים וצורות", view: "תצוגה והגדרות", functions: "גרפים ופונקציות", sliders: "מחוונים דינמיים", transform: "טרנספורמציות", objects: "רשימת אובייקטים" }[entry.section]}</small></div>
                   <p><b>מה זה?</b> {entry.definition}</p>
                   <p><b>איך משתמשים?</b> {entry.instruction}</p>
                   <button onClick={() => openHelpTool(entry)}>מעבר ←</button>

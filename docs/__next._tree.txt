@@ -1,3 +1,3 @@
-:HL["/math-grids/_next/static/chunks/0xp-4lxsvd.5x.css","style"]
+:HL["/math-grids/_next/static/chunks/087x1eyus646s.css","style"]
 :HC["/",""]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"MB1UwjvlJ95bbdQ4fupEl"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"BPFUvD2iNVLgK-4sEtdtV"}

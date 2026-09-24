@@ -520,6 +520,47 @@
       field.removeExtraneousParentheses = true;
       field.mathVirtualKeyboardPolicy = 'manual'; // מבטל את המקלדת המובנית של MathLive
 
+      // MathLive renders its menus inside the math-field shadow root.
+      // Keep their reading order in Hebrew and place each submenu next to
+      // the item that opened it, within the keyboard dialog.
+      const menuRoot = field.shadowRoot;
+      if (menuRoot) {
+        const menuStyle = document.createElement('style');
+        menuStyle.textContent = `.ui-menu-container{direction:rtl;text-align:right}
+          .ui-menu-container>li,.ui-menu-container>li>.label{direction:rtl;text-align:right}`;
+        menuRoot.appendChild(menuStyle);
+
+        let menuFrame = 0;
+        const placeSubmenus = () => {
+          menuFrame = 0;
+          const menus = [...menuRoot.querySelectorAll('.ui-menu-container')];
+          for (let index = 1; index < menus.length; index++) {
+            const menu = menus[index];
+            const parent = menus[index - 1];
+            const item = parent.querySelector('li.is-submenu-open, li[aria-expanded="true"]');
+            if (!item) continue;
+            const itemRect = item.getBoundingClientRect();
+            const menuRect = menu.getBoundingClientRect();
+            const left = itemRect.left - menuRect.width + 2;
+            const fallback = itemRect.right - 2;
+            const x = left >= 8 ? left : Math.min(fallback, window.innerWidth - menuRect.width - 8);
+            const y = Math.max(8, Math.min(itemRect.top - 4, window.innerHeight - menuRect.height - 8));
+            menu.style.setProperty('right', 'auto', 'important');
+            menu.style.setProperty('left', `${Math.round(x)}px`, 'important');
+            menu.style.setProperty('top', `${Math.round(y)}px`, 'important');
+          }
+        };
+        const scheduleSubmenus = () => {
+          if (!menuFrame) menuFrame = requestAnimationFrame(placeSubmenus);
+        };
+        new MutationObserver(scheduleSubmenus).observe(menuRoot, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['aria-expanded'],
+        });
+      }
+
       // MathLive places this menu relative to the viewport. In the RTL dialog
       // its default right inset can move it outside the keyboard panel.
       const menuToggle = field.shadowRoot?.querySelector('[part="menu-toggle"]');

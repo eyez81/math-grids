@@ -18,7 +18,8 @@ export type PointObject = {
     | { kind: "midpoint"; aId: string; bId: string }
     | { kind: "function"; functionId: string; x: number }
     | { kind: "onLine"; sourceId: string; t: number; aId?: string; bId?: string }
-    | { kind: "onCircle"; sourceId: string; angle: number };
+    | { kind: "onCircle"; sourceId: string; angle: number }
+    | { kind: "onSketch"; sourceId: string; segment: number; t: number };
 };
 
 export type SegmentObject = {

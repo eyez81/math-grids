@@ -83,6 +83,21 @@ type TextHitbox = {
   height: number;
 };
 
+const projectToSketch = (points: Point[], target: Point, xScale: number, yScale: number) => {
+  let best: { point: Point; segment: number; t: number; distance: number } | null = null;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i], b = points[i + 1];
+    const dx = (b.x - a.x) / xScale, dy = (b.y - a.y) / yScale;
+    const denominator = dx * dx + dy * dy;
+    if (!denominator) continue;
+    const t = Math.max(0, Math.min(1, (((target.x - a.x) / xScale) * dx + ((target.y - a.y) / yScale) * dy) / denominator));
+    const point = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    const distance = Math.hypot((target.x - point.x) / xScale, (target.y - point.y) / yScale);
+    if (!best || distance < best.distance) best = { point, segment: i, t, distance };
+  }
+  return best;
+};
+
 const MODES: Record<
   Mode,
   { label: string; description: string; grade: string }
@@ -321,7 +336,7 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגה והגדרות." },
   { title: "פונקציה קווית", mode: "linear", section: "functions", keywords: "גרף ישר משוואה שיפוע", definition: "פונקציה מהצורה y=mx+b שהגרף שלה הוא ישר.", instruction: "פתחו גרפים ופונקציות, לחצו הוספת פונקציה, הזינו משוואה ואשרו." },
   { title: "פונקציה ריבועית וכללית", mode: "graphs", section: "functions", keywords: "פרבולה גרפים משוואה", definition: "פונקציה ריבועית כוללת איבר x²; פונקציה כללית יכולה לכלול גם ביטויים אחרים.", instruction: "בסביבת גרפים ופונקציות פתחו הוספת פונקציה, הקלידו למשל y=x^2 ואשרו." },
-  { title: "שרטוט גרף חופשי", tool: "sketch", mode: "graphs", section: "functions", keywords: "ציור ביד חופשית עקומה ישר גרירה", definition: "גרף מצויר המתאר קשר חזותי בין גדלים. לשרטוט חופשי אין משוואה מחושבת.", instruction: "בחרו שרטוט גרף חופשי וגררו במישור בעזרת העכבר או האצבע. בסיום הקו מוחלק בעדינות; משיכה כמעט ישרה מתיישרת. עברו לבחירה כדי להזיז או למחוק את השרטוט." },
+  { title: "שרטוט גרף חופשי", tool: "sketch", mode: "graphs", section: "functions", keywords: "ציור ביד חופשית עקומה ישר פרבולה גרירה נקודה על גרף", definition: "גרף מצויר המתאר קשר חזותי בין גדלים. לשרטוט חופשי אין משוואה מחושבת.", instruction: "בחרו שרטוט גרף חופשי וגררו במישור בעזרת העכבר או האצבע. בסיום משיכה שמתאימה לישר או לפרבולה תתיישר לצורה; צורות אחרות יוחלקו. בכלי נקודה לחצו על השרטוט כדי להצמיד אליו נקודה. עברו לבחירה כדי להזיז או למחוק את השרטוט." },
   { title: "מחוון דינמי", mode: "graphs", section: "sliders", keywords: "משתנה פרמטר הזזה אנימציה", definition: "משתנה שאפשר לשנות את ערכו כדי לראות כיצד פונקציה תלויה בו.", instruction: "פתחו מחוונים דינמיים, הגדירו אות, ערך, טווח וצעד, ולחצו הוספת מחוון. השתמשו באות במשוואת הפונקציה." },
   { title: "הזזה", mode: "advanced", section: "transform", keywords: "טרנספורמציה העתקה וקטור", definition: "העברת כל נקודה באותו מרחק ובאותו כיוון: (x,y) הופך ל־(x+Δx,y+Δy).", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו Δx ו־Δy ולחצו הזזה. נוצר עותק מוזז." },
   { title: "סיבוב סביב הראשית", mode: "advanced", section: "transform", keywords: "טרנספורמציה זווית", definition: "סיבוב צורה סביב הנקודה (0,0) בזווית נתונה.", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו זווית במעלות ולחצו סיבוב סביב הראשית." },
@@ -934,6 +949,14 @@ export default function CoordinateWorkspace() {
         const source = objects.find((o): o is CircleObject => o.type === "circle" && o.id === dependency.sourceId);
         const data = source && circleResolverRef.current?.(source);
         if (data) return { ...raw, x: data.center.x + data.r * Math.cos(dependency.angle), y: data.center.y + data.r * Math.sin(dependency.angle) / circleRatio };
+      }
+      if (raw.dependency?.kind === "onSketch") {
+        const { sourceId, segment, t } = raw.dependency;
+        const sketch = objects.find((o): o is SketchObject => o.type === "sketch" && o.id === sourceId);
+        if (sketch?.points[segment + 1]) {
+          const a = sketch.points[segment], b = sketch.points[segment + 1];
+          return { ...raw, x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+        }
       }
       return raw;
     },
@@ -2011,6 +2034,10 @@ export default function CoordinateWorkspace() {
               );
           }
         } catch {}
+      } else if (o.type === "sketch") {
+        const target = screenToWorld(sx, sy, w, h);
+        const projection = projectToSketch(o.points, target, xTickStep, yTickStep);
+        if (projection) consider(projection.point, o.name, o.id, projection.distance * viewport.scale * gridStep);
       }
     }
     return best;
@@ -2018,6 +2045,10 @@ export default function CoordinateWorkspace() {
   const pointOnObject = (objectId: string, target: Point): ConstructionPoint | null => {
     const source = objects.find((o) => o.id === objectId && !o.hidden);
     if (!source) return null;
+    if (source.type === "sketch") {
+      const projection = projectToSketch(source.points, target, xTickStep, yTickStep);
+      return projection && { ...projection.point, dependency: { kind: "onSketch", sourceId: source.id, segment: projection.segment, t: projection.t } };
+    }
     if (source.type === "segment" || source.type === "line" || source.type === "polygon") {
       const edges = source.type === "polygon"
         ? source.pointIds.map((aId, index) => ({ aId, bId: source.pointIds[(index + 1) % source.pointIds.length] }))
@@ -3176,7 +3207,7 @@ export default function CoordinateWorkspace() {
                   y: world.y,
                   dependency: { ...o.dependency, x: world.x },
                 }
-              : o.dependency?.kind === "onLine" || o.dependency?.kind === "onCircle"
+              : o.dependency?.kind === "onLine" || o.dependency?.kind === "onCircle" || o.dependency?.kind === "onSketch"
                 ? (() => {
                     const constrained = pointOnObject(o.dependency.sourceId, screenToWorld(p.x, p.y, p.w, p.h));
                     return constrained ? { ...o, x: constrained.x, y: constrained.y, dependency: constrained.dependency } : o;

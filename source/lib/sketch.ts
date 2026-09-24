@@ -8,6 +8,56 @@ const distanceToLine = (point: Point, a: Point, b: Point) => {
   return size ? Math.abs(dx * (point.y - a.y) - dy * (point.x - a.x)) / size : length(point, a);
 };
 
+const fitParabola = (points: Point[]): Point[] | null => {
+  const first = points[0], last = points[points.length - 1];
+  const span = Math.abs(last.x - first.x);
+  if (span < 100) return null;
+  const direction = Math.sign(last.x - first.x);
+  let backwards = 0;
+  for (let i = 1; i < points.length; i += 1)
+    backwards += Math.max(0, -direction * (points[i].x - points[i - 1].x));
+  if (backwards > span * 0.12) return null;
+  const center = (first.x + last.x) / 2, half = span / 2;
+  const sums = Array(5).fill(0) as number[];
+  let sy = 0, sty = 0, st2y = 0, minY = Infinity, maxY = -Infinity;
+  for (const point of points) {
+    const t = (point.x - center) / half;
+    let power = 1;
+    for (let j = 0; j < 5; j += 1) { sums[j] += power; power *= t; }
+    sy += point.y; sty += t * point.y; st2y += t * t * point.y;
+    minY = Math.min(minY, point.y); maxY = Math.max(maxY, point.y);
+  }
+  const m = [[sums[0], sums[1], sums[2], sy], [sums[1], sums[2], sums[3], sty], [sums[2], sums[3], sums[4], st2y]];
+  for (let col = 0; col < 3; col += 1) {
+    let pivot = col;
+    for (let row = col + 1; row < 3; row += 1) if (Math.abs(m[row][col]) > Math.abs(m[pivot][col])) pivot = row;
+    [m[col], m[pivot]] = [m[pivot], m[col]];
+    if (Math.abs(m[col][col]) < 1e-8) return null;
+    const divisor = m[col][col];
+    for (let j = col; j < 4; j += 1) m[col][j] /= divisor;
+    for (let row = 0; row < 3; row += 1) if (row !== col) {
+      const factor = m[row][col];
+      for (let j = col; j < 4; j += 1) m[row][j] -= factor * m[col][j];
+    }
+  }
+  const [c, b, a] = m.map((row) => row[3]);
+  const vertex = -b / (2 * a);
+  if (Math.abs(a) < 12 || Math.abs(vertex) > 0.9 || maxY - minY < 35) return null;
+  const evaluate = (x: number) => { const t = (x - center) / half; return a * t * t + b * t + c; };
+  let errors = 0, maximum = 0;
+  for (const point of points) {
+    const error = Math.abs(evaluate(point.x) - point.y);
+    errors += error * error; maximum = Math.max(maximum, error);
+  }
+  const height = maxY - minY;
+  if (Math.sqrt(errors / points.length) > Math.max(12, Math.min(35, height * 0.11)) || maximum > Math.max(25, height * 0.18)) return null;
+  const count = Math.ceil(span / 4);
+  return Array.from({ length: count + 1 }, (_, i) => {
+    const x = first.x + (last.x - first.x) * i / count;
+    return { x, y: evaluate(x) };
+  });
+};
+
 const simplify = (points: Point[], tolerance: number): Point[] => {
   if (points.length < 3) return points;
   let farthest = 0, index = 0;
@@ -34,8 +84,13 @@ export const beautifySketch = (raw: Point[]): Point[] => {
     spaced = spaced.filter((_, i) => i % stride === 0 || i === spaced.length - 1);
   }
   const start = spaced[0], end = spaced[spaced.length - 1];
-  if (length(start, end) > 30 && spaced.every((point) => distanceToLine(point, start, end) < 7))
-    return [start, end];
+  if (length(start, end) > 40) {
+    const deviations = spaced.map((point) => distanceToLine(point, start, end));
+    const rms = Math.hypot(...deviations) / Math.sqrt(deviations.length);
+    if (rms < 8 && Math.max(...deviations) < 22) return [start, end];
+  }
+  const parabola = fitParabola(spaced);
+  if (parabola) return parabola;
 
   // Smooth movements over roughly 15px, retaining both ends of the stroke.
   const radius = 5;

@@ -19,6 +19,7 @@ import {
   PointObject,
   PolygonObject,
   SegmentObject,
+  SketchObject,
   SliderObject,
   StrokeStyle,
   TextObject,
@@ -250,6 +251,7 @@ const TOOL_META: Record<Tool, { icon: string; label: string }> = {
   angleBisector: { icon: "∠̸", label: "חוצה זווית" },
   intersection: { icon: "×", label: "נקודות חיתוך" },
   text: { icon: "T", label: "טקסט חופשי" },
+  sketch: { icon: "〰", label: "שרטוט גרף חופשי" },
 };
 const SHAPE_ICON_FILES: Partial<Record<Tool, string>> = {
   point: "point.svg",
@@ -318,6 +320,7 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "הצגת מספרים", mode: "coordinates", section: "view", keywords: "שנתות ערכים", definition: "המספרים המציינים את ערכי השנתות על הצירים.", instruction: "הפעילו או כבו הצגת מספרים בתצוגה והגדרות." },
   { title: "פונקציה קווית", mode: "linear", section: "functions", keywords: "גרף ישר משוואה שיפוע", definition: "פונקציה מהצורה y=mx+b שהגרף שלה הוא ישר.", instruction: "פתחו גרפים ופונקציות, לחצו הוספת פונקציה, הזינו משוואה ואשרו." },
   { title: "פונקציה ריבועית וכללית", mode: "graphs", section: "functions", keywords: "פרבולה גרפים משוואה", definition: "פונקציה ריבועית כוללת איבר x²; פונקציה כללית יכולה לכלול גם ביטויים אחרים.", instruction: "בסביבת גרפים ופונקציות פתחו הוספת פונקציה, הקלידו למשל y=x^2 ואשרו." },
+  { title: "שרטוט גרף חופשי", tool: "sketch", mode: "graphs", section: "functions", keywords: "ציור ביד חופשית עקומה ישר גרירה", definition: "גרף מצויר המתאר קשר חזותי בין גדלים. לשרטוט חופשי אין משוואה מחושבת.", instruction: "בחרו שרטוט גרף חופשי וגררו במישור בעזרת העכבר או האצבע. בסיום הקו מוחלק בעדינות; משיכה כמעט ישרה מתיישרת. עברו לבחירה כדי להזיז או למחוק את השרטוט." },
   { title: "מחוון דינמי", mode: "graphs", section: "sliders", keywords: "משתנה פרמטר הזזה אנימציה", definition: "משתנה שאפשר לשנות את ערכו כדי לראות כיצד פונקציה תלויה בו.", instruction: "פתחו מחוונים דינמיים, הגדירו אות, ערך, טווח וצעד, ולחצו הוספת מחוון. השתמשו באות במשוואת הפונקציה." },
   { title: "הזזה", mode: "advanced", section: "transform", keywords: "טרנספורמציה העתקה וקטור", definition: "העברת כל נקודה באותו מרחק ובאותו כיוון: (x,y) הופך ל־(x+Δx,y+Δy).", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו Δx ו־Δy ולחצו הזזה. נוצר עותק מוזז." },
   { title: "סיבוב סביב הראשית", mode: "advanced", section: "transform", keywords: "טרנספורמציה זווית", definition: "סיבוב צורה סביב הנקודה (0,0) בזווית נתונה.", instruction: "בחרו אובייקט, פתחו טרנספורמציות, הזינו זווית במעלות ולחצו סיבוב סביב הראשית." },
@@ -451,6 +454,7 @@ const objectSummary = (object: MathObject, allObjects: MathObject[]) => {
     return compact.length > 42 ? `${compact.slice(0, 42)}…` : compact || "טקסט";
   }
   if (object.type === "function") return object.expression;
+  if (object.type === "sketch") return object.name;
   return object.name;
 };
 
@@ -635,6 +639,8 @@ export default function CoordinateWorkspace() {
   const [objects, setObjects] = useState<MathObject[]>([]),
     [history, setHistory] = useState<MathObject[][]>([]),
     [future, setFuture] = useState<MathObject[][]>([]);
+  const sketchRef = useRef<Point[] | null>(null);
+  const [sketchPreview, setSketchPreview] = useState<Point[] | null>(null);
   const [tool, setTool] = useState<Tool>("select"),
     [mode, setMode] = useState<Mode>("coordinates"),
     [selectedId, setSelectedId] = useState<string | null>(null),
@@ -676,7 +682,7 @@ export default function CoordinateWorkspace() {
     [pointer, setPointer] = useState<Point | null>(null),
     [intersectionCandidates, setIntersectionCandidates] = useState<IntersectionCandidate[]>([]);
   const [dragging, setDragging] = useState<{
-      kind: "pan" | "point" | "label" | "text";
+      kind: "pan" | "point" | "label" | "text" | "sketch";
       id?: string;
       labelKey?: string;
       startOffset?: Point;
@@ -1343,6 +1349,34 @@ export default function CoordinateWorkspace() {
         if (labels.length)
           drawLabel(ctx, labels.join(" · "), p.x, p.y - rp - 18, o.color, o.id, "summary");
       });
+    const sketches = objects.filter((o): o is SketchObject => o.type === "sketch" && !o.hidden);
+    sketches.forEach((o) => {
+      ctx.save();
+      ctx.strokeStyle = o.color;
+      ctx.lineWidth = o.strokeWidth + (selectedId === o.id ? 1.5 : 0);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.setLineDash(strokeDash(o.strokeStyle));
+      ctx.beginPath();
+      o.points.forEach((point, index) => {
+        const screen = worldToScreen(point.x, point.y, w, h);
+        if (index === 0) ctx.moveTo(screen.x, screen.y);
+        else ctx.lineTo(screen.x, screen.y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    });
+    if (sketchPreview?.length) {
+      ctx.save();
+      ctx.strokeStyle = COLORS[1];
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      sketchPreview.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.stroke();
+      ctx.restore();
+    }
     objects
       .filter((o): o is FunctionObject => o.type === "function" && !o.hidden)
       .forEach((o) => {
@@ -1733,6 +1767,7 @@ export default function CoordinateWorkspace() {
     screenToWorld,
     segmentPoints,
     selectedId,
+    sketchPreview,
     showGrid,
     showAxes,
     showNumbers,
@@ -1805,6 +1840,9 @@ export default function CoordinateWorkspace() {
       if (o.type === "segment" || o.type === "line") {
         const ep = segmentPoints(o);
         d = distanceToSegment({ x: sx, y: sy }, worldToScreen(ep.a.x, ep.a.y, w, h), worldToScreen(ep.b.x, ep.b.y, w, h), o.type === "line");
+      } else if (o.type === "sketch") {
+        for (let i = 1; i < o.points.length; i += 1)
+          d = Math.min(d, distanceToSegment({ x: sx, y: sy }, worldToScreen(o.points[i - 1].x, o.points[i - 1].y, w, h), worldToScreen(o.points[i].x, o.points[i].y, w, h)));
       } else if (o.type === "circle") {
         const c = circleData(o);
         const center = worldToScreen(c.center.x, c.center.y, w, h);
@@ -2464,6 +2502,13 @@ export default function CoordinateWorkspace() {
       });
       return;
     }
+    if (tool === "sketch") {
+      sketchRef.current = [{ x: p.x, y: p.y }];
+      setSketchPreview([...sketchRef.current]);
+      setDragging({ kind: "sketch", sx: p.x, sy: p.y, origin: viewport });
+      setFeedback(null);
+      return;
+    }
     if (tool === "select") {
       const label = [...labelHitboxesRef.current]
         .reverse()
@@ -2514,6 +2559,9 @@ export default function CoordinateWorkspace() {
             sy: e.clientY,
             origin: viewport,
           });
+        } else if (hit.type === "sketch") {
+          dragStartObjectsRef.current = objects;
+          setDragging({ kind: "sketch", id: hit.id, sx: p.x, sy: p.y, origin: viewport });
         }
       } else {
         setSelectedId(null);
@@ -3058,6 +3106,21 @@ export default function CoordinateWorkspace() {
           : !dragging && (tool === "point" || tool === "segment" || tool === "line" || tool === "polygon" || tool === "circle") && magnet
             ? magnet.point
           : snapWorld(screenToWorld(p.x, p.y, p.w, p.h));
+    if (dragging?.kind === "sketch") {
+      if (dragging.id) {
+        const dx = (p.x - dragging.sx) * xTickStep / (viewport.scale * gridStep);
+        const dy = -(p.y - dragging.sy) * yTickStep / (viewport.scale * gridStep);
+        const original = dragStartObjectsRef.current?.find((o): o is SketchObject => o.id === dragging.id && o.type === "sketch");
+        if (original) setObjects((current) => current.map((o) => o.id === original.id ? { ...original, points: original.points.map((v) => ({ x: v.x + dx, y: v.y + dy })) } : o));
+      } else if (sketchRef.current) {
+        const last = sketchRef.current[sketchRef.current.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) >= 2) {
+          sketchRef.current.push({ x: p.x, y: p.y });
+          setSketchPreview([...sketchRef.current]);
+        }
+      }
+      return;
+    }
     setMagneticTarget(!dragging && magnet ? magnet.name : null);
     setPointer(world);
     if (!dragging) return;
@@ -3124,11 +3187,29 @@ export default function CoordinateWorkspace() {
         ),
       );
   };
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (dragging?.kind === "sketch" && !dragging.id && sketchRef.current) {
+      const raw = sketchRef.current;
+      const size = pointerPos(e);
+      if (raw.length >= 2 && Math.hypot(raw.at(-1)!.x - raw[0].x, raw.at(-1)!.y - raw[0].y) + raw.length > 6) {
+        const start = raw[0], end = raw.at(-1)!;
+        const length = Math.hypot(end.x - start.x, end.y - start.y);
+        const almostStraight = length > 30 && raw.every((point) => Math.abs((end.x - start.x) * (start.y - point.y) - (start.x - point.x) * (end.y - start.y)) / length < 7);
+        const smoothed = almostStraight ? [start, end] : raw.map((point, i) => i === 0 || i === raw.length - 1 ? point : {
+          x: (raw[i - 1].x + 2 * point.x + raw[i + 1].x) / 4,
+          y: (raw[i - 1].y + 2 * point.y + raw[i + 1].y) / 4,
+        });
+        const sketch: SketchObject = { id: uid(), type: "sketch", name: `שרטוט ${objects.filter((o) => o.type === "sketch").length + 1}`, points: smoothed.map((point) => screenToWorld(point.x, point.y, size.w, size.h)), color: COLORS[1], strokeWidth: 2.5, strokeStyle: "solid" };
+        pushObjects([...objects, sketch]);
+        setSelectedId(sketch.id);
+      }
+      sketchRef.current = null;
+      setSketchPreview(null);
+    }
     if (
       (dragging?.kind === "point" ||
         dragging?.kind === "label" ||
-        dragging?.kind === "text") &&
+        dragging?.kind === "text" || dragging?.kind === "sketch" && Boolean(dragging.id)) &&
       dragStartObjectsRef.current
     ) {
       setHistory((h) => [...h.slice(-49), dragStartObjectsRef.current!]);
@@ -4060,6 +4141,11 @@ export default function CoordinateWorkspace() {
                 open={sections.functions}
                 onToggle={() => toggleSection("functions")}
               >
+                <button className={`sketch-tool-button ${tool === "sketch" ? "active" : ""}`} onClick={() => chooseTool("sketch")}
+                  onMouseEnter={(event) => showToolHint("sketch", event.currentTarget)} onMouseLeave={() => setToolHint(null)}
+                  onFocus={(event) => showToolHint("sketch", event.currentTarget)} onBlur={() => setToolHint(null)}>
+                  <span aria-hidden="true">〰</span> שרטוט גרף חופשי
+                </button>
                 <p className="section-help panel-intro">בחרו פונקציה כדי להציג את הגרף שלה במישור.</p>
                 {mode === "linear" ? (
                   <p className="fixed-function-kind">פונקציה קווית · y=mx+b</p>

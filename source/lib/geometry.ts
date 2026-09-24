@@ -79,6 +79,18 @@ export type FunctionObject = {
   maxClosed: boolean;
 };
 
+export type SketchObject = {
+  id: string;
+  type: "sketch";
+  name: string;
+  points: Point[];
+  color: string;
+  hidden?: boolean;
+  strokeWidth: number;
+  strokeStyle: StrokeStyle;
+  labelOffsets?: LabelOffsets;
+};
+
 export type AngleObject = {
   id: string;
   type: "angle";
@@ -166,6 +178,7 @@ export type MathObject =
   | PointObject
   | SegmentObject
   | FunctionObject
+  | SketchObject
   | AngleObject
   | PolygonObject
   | CircleObject
@@ -190,7 +203,8 @@ export type Tool =
   | "median"
   | "angleBisector"
   | "intersection"
-  | "text";
+  | "text"
+  | "sketch";
 
 export type Viewport = { centerX: number; centerY: number; scale: number };
 

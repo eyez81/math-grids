@@ -2412,7 +2412,7 @@ export default function CoordinateWorkspace() {
       cp: ConstructionPoint = hitPoint
         ? { ...hitPoint, pointId: hitPoint.id }
         : attached ?? { ...world };
-    setMagneticTarget(magnet?.name ?? null);
+    setMagneticTarget(attached ? magnet?.name ?? null : null);
     if (tool === "intersection" && intersectionCandidates.length) {
       const candidate = intersectionCandidates.find((item) => {
         const screen = worldToScreen(item.x, item.y, p.w, p.h);
@@ -3043,8 +3043,10 @@ export default function CoordinateWorkspace() {
       world =
         dragging?.kind === "text"
           ? screenToWorld(p.x, p.y, p.w, p.h)
+          : !dragging && (tool === "point" || tool === "segment" || tool === "line" || tool === "polygon" || tool === "circle") && magnet
+            ? magnet.point
           : snapWorld(screenToWorld(p.x, p.y, p.w, p.h));
-    setMagneticTarget(magnet?.name ?? null);
+    setMagneticTarget(!dragging && magnet ? magnet.name : null);
     setPointer(world);
     if (!dragging) return;
     if (dragging.kind === "pan") {

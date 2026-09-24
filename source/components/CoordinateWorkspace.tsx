@@ -35,6 +35,7 @@ import {
   slope,
   uid,
 } from "../lib/geometry";
+import { beautifySketch } from "../lib/sketch";
 
 type MathKeyboardElement = HTMLElement & {
   value: string;
@@ -3192,13 +3193,7 @@ export default function CoordinateWorkspace() {
       const raw = sketchRef.current;
       const size = pointerPos(e);
       if (raw.length >= 2 && Math.hypot(raw.at(-1)!.x - raw[0].x, raw.at(-1)!.y - raw[0].y) + raw.length > 6) {
-        const start = raw[0], end = raw.at(-1)!;
-        const length = Math.hypot(end.x - start.x, end.y - start.y);
-        const almostStraight = length > 30 && raw.every((point) => Math.abs((end.x - start.x) * (start.y - point.y) - (start.x - point.x) * (end.y - start.y)) / length < 7);
-        const smoothed = almostStraight ? [start, end] : raw.map((point, i) => i === 0 || i === raw.length - 1 ? point : {
-          x: (raw[i - 1].x + 2 * point.x + raw[i + 1].x) / 4,
-          y: (raw[i - 1].y + 2 * point.y + raw[i + 1].y) / 4,
-        });
+        const smoothed = beautifySketch(raw);
         const sketch: SketchObject = { id: uid(), type: "sketch", name: `שרטוט ${objects.filter((o) => o.type === "sketch").length + 1}`, points: smoothed.map((point) => screenToWorld(point.x, point.y, size.w, size.h)), color: COLORS[1], strokeWidth: 2.5, strokeStyle: "solid" };
         pushObjects([...objects, sketch]);
         setSelectedId(sketch.id);

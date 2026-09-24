@@ -2033,8 +2033,9 @@ select {
 
 /* Consistent action sizes and a compact second row on tablets. */
 .top-actions { align-items: center; gap: 8px; }
-.topbar { grid-template-columns: minmax(150px, 1fr) auto minmax(684px, 1fr); column-gap: 18px; }
-.top-actions > button { height: 42px; min-height: 42px; min-width: 140px; padding: 0 14px; border-color: #bfd4d9; color: #193e48; background: #f8fbfc; font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 2px #16363f12; }
+.topbar { grid-template-columns: minmax(150px, 1fr) auto minmax(700px, 1fr); column-gap: 18px; }
+.top-actions > button { height: 42px; min-height: 42px; min-width: 140px; padding: 0 14px; border-color: #abc6cc; color: #173944; background: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 3px #16363f18; }
+.top-actions > button:first-child { border-color: #8dbab6; background: #edf7f6; color: #076b65; }
 .top-actions > button:hover:not(:disabled) { border-color: #69a7a4; background: #edf8f7; }
 .top-actions > button.history-action { width: 42px; min-width: 42px; padding: 0; }
 .top-actions > button:disabled { opacity: .46; box-shadow: none; }

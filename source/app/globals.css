@@ -2043,6 +2043,18 @@ select {
 .axis-step-fields label, .axis-custom-label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
 .axis-step-fields input, .axis-custom-label input { display: block; width: 100%; min-width: 0; height: 36px; margin-top: 5px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
 .axis-custom-label { margin: 12px 0; }
+.axis-label-editor { margin: 12px 0; border: 1px solid #d2e2e4; border-radius: 10px; background: #fff; padding: 10px; }
+.axis-label-editor summary { color: #075f5c; font-size: 13px; font-weight: 800; cursor: pointer; }
+.axis-label-editor p { margin: 9px 0; color: #5e7178; font-size: 11px; line-height: 1.5; }
+.axis-label-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0; }
+.axis-label-tabs button { min-height: 34px; border: 1px solid #c7dcdf; border-radius: 7px; background: #f8fbfc; color: #244650; font-weight: 700; cursor: pointer; }
+.axis-label-tabs button.active { border-color: #00817a; background: #e5f5f3; color: #006963; }
+.axis-label-range { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #445d66; font-size: 12px; font-weight: 700; }
+.axis-label-range input { width: 66px; height: 32px; padding: 0 6px; border: 1px solid #c7dcdf; border-radius: 7px; text-align: center; }
+.axis-label-rows { max-height: 250px; overflow-y: auto; display: grid; gap: 5px; padding-inline-end: 2px; }
+.axis-label-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 7px; color: #284651; font-size: 12px; }
+.axis-label-row span { text-align: center; font-weight: 700; }
+.axis-label-row input { width: 100%; min-width: 0; height: 33px; padding: 0 8px; border: 1px solid #d2e1e4; border-radius: 7px; background: #fbfdfe; }
 @media (min-width: 701px) and (max-width: 1100px) {
   .top-actions > button.view-reset, .top-actions > button.export-action { width: 42px; min-width: 42px; padding: 0; font-size: 0; }
   .top-actions > button.view-reset::before, .top-actions > button.export-action::before { font-size: 18px; }

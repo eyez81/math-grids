@@ -422,6 +422,8 @@
       toolbar.setAttribute('role', 'toolbar');
       toolbar.setAttribute('aria-label', 'סרגל כתיב מתמטי');
 
+      const functionMode = this.hasAttribute('function-mode');
+      const unsupportedFunctionButtons = new Set(['xₙ', '±', '1 a⁄b']);
       const buildGroup = (groupDef, advanced = false) => {
         const group = document.createElement('section');
         group.className = 'mkf-group';
@@ -434,7 +436,7 @@
         const buttons = document.createElement('div');
         buttons.className = 'mkf-group-buttons';
 
-        groupDef.buttons.forEach((def) => {
+        groupDef.buttons.filter((def) => !functionMode || !unsupportedFunctionButtons.has(def.label)).forEach((def) => {
           const btn = document.createElement('button');
           btn.type = 'button';
           const typeClass =
@@ -476,7 +478,8 @@
       advancedToggle.setAttribute('aria-expanded', 'false');
       const advancedPanel = document.createElement('div');
       advancedPanel.className = 'mkf-advanced-panel';
-      ADVANCED_GROUPS.forEach((groupDef) => advancedPanel.appendChild(buildGroup(groupDef, true)));
+      ADVANCED_GROUPS.filter((groupDef) => !functionMode || !['advanced-calculus', 'advanced-matrices'].includes(groupDef.id))
+        .forEach((groupDef) => advancedPanel.appendChild(buildGroup(groupDef, true)));
       advancedToggle.addEventListener('click', () => {
         const isOpen = advancedPanel.classList.toggle('mkf-open');
         advancedToggle.textContent = isOpen ? 'מתקדם  ▴' : 'מתקדם  ▾';

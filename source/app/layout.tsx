@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "המרחב המתמטי – אלגברה וגאומטריה אנליטית",
   description: "סביבת עבודה אינטראקטיבית לנקודות, ישרים, זוויות ופונקציות קוויות, ריבועיות וכלליות",
+  icons: { icon: "./favicon.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -272,3 +272,42 @@ export const uid = () =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
     : `obj-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+export const circumcircle = (a: Point, b: Point, c: Point) => {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+  if (Math.abs(d) < 1e-10) return null;
+  const aa = a.x * a.x + a.y * a.y,
+    bb = b.x * b.x + b.y * b.y,
+    cc = c.x * c.x + c.y * c.y,
+    center = {
+      x: (aa * (b.y - c.y) + bb * (c.y - a.y) + cc * (a.y - b.y)) / d,
+      y: (aa * (c.x - b.x) + bb * (a.x - c.x) + cc * (b.x - a.x)) / d,
+    };
+  return { center, r: distance(center, a) };
+};
+
+/** Interior angles, including reflex angles, for a simple polygon in either winding. */
+export const polygonInteriorAngle = (points: Point[], index: number) => {
+  if (points.length < 3) return NaN;
+  const p = points[index], a = points[(index + points.length - 1) % points.length],
+    b = points[(index + 1) % points.length];
+  const winding = Math.sign(points.reduce((sum, point, i) => {
+    const next = points[(i + 1) % points.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0));
+  const turn = (p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x);
+  const small = angleDegrees(a, p, b);
+  return turn * winding < 0 ? 360 - small : small;
+};
+
+export const pointOnCircle = (center: Point, radius: number, angle: number): Point => ({
+  x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle),
+});
+
+export const inFunctionDomain = (
+  x: number,
+  fn: Pick<FunctionObject, "domainMin" | "domainMax" | "minClosed" | "maxClosed">,
+  tolerance = 0,
+) => Number.isFinite(x)
+  && (fn.domainMin === undefined || (fn.minClosed ? x >= fn.domainMin - tolerance : x > fn.domainMin + tolerance))
+  && (fn.domainMax === undefined || (fn.maxClosed ? x <= fn.domainMax + tolerance : x < fn.domainMax - tolerance));

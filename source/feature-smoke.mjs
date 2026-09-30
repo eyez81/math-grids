@@ -1,10 +1,7 @@
 import puppeteer from "puppeteer-core";
+import { browserOptions, testUrl, openSection, screenshotPath } from "./scripts/smoke-config.mjs";
 
-const browser = await puppeteer.launch({
-  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-  executablePath: "/tmp/chromium",
-  headless: true,
-});
+const browser = await puppeteer.launch(browserOptions());
 const page = await browser.newPage();
 await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
 const errors = [];
@@ -17,6 +14,7 @@ page.on("response", (response) => {
 });
 const pause = () => new Promise((resolve) => setTimeout(resolve, 120));
 const clickButton = async (wanted) => {
+  if (wanted.includes("הוספת פונקציה")) await openSection(page, ["גרפים ופונקציות"]);
   for (const button of await page.$$("button")) {
     const text = await button.evaluate((element) =>
       (element.textContent || "").replace(/\s+/g, " ").trim(),
@@ -30,17 +28,30 @@ const clickButton = async (wanted) => {
   throw new Error(`Button not found: ${wanted}`);
 };
 const clickTool = async (wanted) => {
-  for (const button of await page.$$(".tool-grid button")) {
-    const text = await button.evaluate((element) =>
-      (element.textContent || "").replace(/\s+/g, " ").trim(),
-    );
-    if (text.endsWith(wanted)) {
-      await button.click();
-      await pause();
-      return;
-    }
+  const constructionTools = ["נקודת אמצע", "מקביל", "מאונך", "אנך אמצעי", "תיכון במשולש", "חוצה זווית", "נקודות חיתוך"];
+  await openSection(page, constructionTools.includes(wanted)
+    ? ["בניות עזר"]
+    : ["כלים בסיסיים", "נקודות", "קטעים וצורות"]);
+  const clicked = await page.$$eval(".tool-grid button", (buttons, wanted) => {
+    const button = buttons.find((element) =>
+      (element.textContent || "").replace(/\s+/g, " ").trim().endsWith(wanted));
+    button?.click();
+    return Boolean(button);
+  }, wanted);
+  if (clicked) {
+    await pause();
+    return;
   }
-  throw new Error(`Tool not found: ${wanted}`);
+  const state = await page.evaluate(() => ({
+    sections: [...document.querySelectorAll(".tool-section-head")].map((button) => ({
+      text: button.textContent?.replace(/\s+/g, " ").trim(),
+      open: button.getAttribute("aria-expanded"),
+    })),
+    tools: [...document.querySelectorAll(".tool-grid button")].map((button) =>
+      button.textContent?.replace(/\s+/g, " ").trim()),
+    dialog: Boolean(document.querySelector(".modal-backdrop")),
+  }));
+  throw new Error(`Tool not found: ${wanted}; state=${JSON.stringify(state)}`);
 };
 const canvas = async () => page.$("canvas");
 const clickWorld = async (x, y) => {
@@ -63,7 +74,7 @@ const cardTexts = () =>
     elements.map((element) => (element.textContent || "").replace(/\s+/g, " ").trim()),
   );
 
-await page.goto(process.env.TEST_URL || "http://127.0.0.1:8765/math-grids-81/", {
+await page.goto(testUrl, {
   waitUntil: "networkidle0",
 });
 await page.waitForSelector("canvas");
@@ -108,7 +119,7 @@ const hashRegion = async (x, y, width, height) =>
 const localX = labelX - box.x;
 const localY = labelY - box.y;
 const beforeLabel = await hashRegion(localX - 35, localY - 18, 70, 36);
-await page.screenshot({ path: "/tmp/math-grids-before-label.png", fullPage: true });
+await page.screenshot({ path: screenshotPath("math-grids-before-label.png"), fullPage: true });
 await page.mouse.move(labelX, labelY);
 await page.mouse.down();
 await page.mouse.move(labelX + 30, labelY + 20, { steps: 5 });
@@ -141,13 +152,6 @@ await page.$eval("math-keyboard-field", (field) => {
 });
 await clickButton("הוספה למישור");
 console.log("stage: function added");
-await clickButton("מדידה ובניות");
-console.log(
-  "tools:",
-  await page.$$eval(".tool-grid button", (buttons) =>
-    buttons.map((button) => (button.textContent || "").replace(/\s+/g, " ").trim()),
-  ),
-);
 await clickTool("נקודות חיתוך");
 await clickWorld(0, -2);
 await clickWorld(0, 0);
@@ -163,7 +167,7 @@ if (!selectedIntersection || !selectedIntersection.includes("(-1.8, 0)"))
 if ((await page.$$(".object-card")).length !== 6)
   errors.push(`intersection created the wrong number of objects: ${(await page.$$(".object-card")).length}`);
 
-await page.screenshot({ path: "/tmp/math-grids-feature-smoke.png", fullPage: true });
+await page.screenshot({ path: screenshotPath("math-grids-feature-smoke.png"), fullPage: true });
 console.log(JSON.stringify({ errors, candidateHint, texts }));
 await browser.close();
 process.exit(errors.length ? 1 : 0);

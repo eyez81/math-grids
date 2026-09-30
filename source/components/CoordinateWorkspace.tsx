@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -26,6 +27,10 @@ import {
   Tool,
   Viewport,
   angleDegrees,
+  circumcircle,
+  polygonInteriorAngle,
+  pointOnCircle,
+  inFunctionDomain,
   distance,
   midpoint,
   nextPointName,
@@ -35,6 +40,9 @@ import {
   slope,
   uid,
 } from "../lib/geometry";
+import { findIntersections } from "../lib/intersections";
+import { parseEquation, renameMathVariable } from "../lib/expressions";
+import { createGeometryResolver } from "../lib/resolveGeometry";
 import { beautifySketch } from "../lib/sketch";
 
 type MathKeyboardElement = HTMLElement & {
@@ -562,75 +570,6 @@ const ToolSection = ({
   </section>
 );
 
-const lineIntersection = (
-  a: Point,
-  b: Point,
-  c: Point,
-  d: Point,
-): Point | null => {
-  const den = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
-  if (Math.abs(den) < 1e-10) return null;
-  const cross1 = a.x * b.y - a.y * b.x,
-    cross2 = c.x * d.y - c.y * d.x;
-  return {
-    x: (cross1 * (c.x - d.x) - (a.x - b.x) * cross2) / den,
-    y: (cross1 * (c.y - d.y) - (a.y - b.y) * cross2) / den,
-  };
-};
-const lineCircleIntersections = (
-  a: Point,
-  b: Point,
-  center: Point,
-  r: number,
-) => {
-  const dx = b.x - a.x,
-    dy = b.y - a.y,
-    fx = a.x - center.x,
-    fy = a.y - center.y;
-  const A = dx * dx + dy * dy,
-    B = 2 * (fx * dx + fy * dy),
-    C = fx * fx + fy * fy - r * r,
-    disc = B * B - 4 * A * C;
-  if (A < 1e-12 || disc < -1e-10) return [] as Point[];
-  const root = Math.sqrt(Math.max(0, disc));
-  return [(-B - root) / (2 * A), (-B + root) / (2 * A)]
-    .filter((t, i, x) => i === 0 || Math.abs(t - x[0]) > 1e-8)
-    .map((t) => ({ x: a.x + t * dx, y: a.y + t * dy }));
-};
-const circleCircleIntersections = (
-  c0: Point,
-  r0: number,
-  c1: Point,
-  r1: number,
-) => {
-  const d = distance(c0, c1);
-  if (d < 1e-10 || d > r0 + r1 + 1e-9 || d < Math.abs(r0 - r1) - 1e-9)
-    return [] as Point[];
-  const a = (r0 * r0 - r1 * r1 + d * d) / (2 * d),
-    h = Math.sqrt(Math.max(0, r0 * r0 - a * a)),
-    x2 = c0.x + (a * (c1.x - c0.x)) / d,
-    y2 = c0.y + (a * (c1.y - c0.y)) / d;
-  const rx = (-(c1.y - c0.y) * h) / d,
-    ry = ((c1.x - c0.x) * h) / d;
-  return h < 1e-9
-    ? [{ x: x2, y: y2 }]
-    : [
-        { x: x2 + rx, y: y2 + ry },
-        { x: x2 - rx, y: y2 - ry },
-      ];
-};
-const circumcircle = (a: Point, b: Point, c: Point) => {
-  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
-  if (Math.abs(d) < 1e-10) return null;
-  const aa = a.x * a.x + a.y * a.y,
-    bb = b.x * b.x + b.y * b.y,
-    cc = c.x * c.x + c.y * c.y,
-    center = {
-      x: (aa * (b.y - c.y) + bb * (c.y - a.y) + cc * (a.y - b.y)) / d,
-      y: (aa * (c.x - b.x) + bb * (a.x - c.x) + cc * (b.x - a.x)) / d,
-    };
-  return { center, r: distance(center, a) };
-};
 
 const valuesAreLinear = (evaluate: (x: number) => number) => {
   const values = [-2, -1, 0, 1, 2].map(evaluate);
@@ -667,9 +606,7 @@ export default function CoordinateWorkspace() {
     labelHitboxesRef = useRef<LabelHitbox[]>([]),
     textHitboxesRef = useRef<TextHitbox[]>([]);
   const keyboardFieldRef = useRef<MathKeyboardElement | null>(null),
-    dragStartObjectsRef = useRef<MathObject[] | null>(null),
-    segmentResolverRef = useRef<((o: SegmentObject) => { a: Point; b: Point }) | null>(null),
-    circleResolverRef = useRef<((o: CircleObject) => { center: Point; r: number }) | null>(null);
+    dragStartObjectsRef = useRef<MathObject[] | null>(null);
   const [objects, setObjects] = useState<MathObject[]>([]),
     [history, setHistory] = useState<MathObject[][]>([]),
     [future, setFuture] = useState<MathObject[][]>([]);
@@ -693,13 +630,6 @@ export default function CoordinateWorkspace() {
     [axisLabels, setAxisLabels] = useState<{ x: Record<number, string>; y: Record<number, string> }>({ x: {}, y: {} }),
     [labelAxis, setLabelAxis] = useState<"x" | "y">("x"),
     [labelRange, setLabelRange] = useState(20);
-  const circleRatio = xTickStep / yTickStep;
-  const circleSpace = (p: Point): Point => ({ x: p.x, y: p.y * circleRatio });
-  const fromCircleSpace = (p: Point): Point => ({ x: p.x, y: p.y / circleRatio });
-  const circleThroughThree = (a: Point, b: Point, c: Point) => {
-    const data = circumcircle(circleSpace(a), circleSpace(b), circleSpace(c));
-    return data && { center: fromCircleSpace(data.center), r: data.r };
-  };
   const [snap, setSnap] = useState(true),
     [showGrid, setShowGrid] = useState(true),
     [showAxes, setShowAxes] = useState(true),
@@ -827,6 +757,7 @@ export default function CoordinateWorkspace() {
         "math-keyboard-field",
       ) as MathKeyboardElement;
       field.setAttribute("placeholder", "הזינו פונקציה");
+      field.setAttribute("function-mode", "");
       field.setAttribute("value", equationLatex);
       field.addEventListener("mkf-input", (e) => {
         setEquation(field.getValue("ascii-math"));
@@ -843,7 +774,7 @@ export default function CoordinateWorkspace() {
         script = existing ?? document.createElement("script");
       script.addEventListener("load", build);
       if (!existing) {
-        script.src = "./math-keyboard.js?v=menu-rtl-2";
+        script.src = "./math-keyboard.js?v=function-parser-3";
         script.dataset.mathKeyboard = "true";
         document.head.appendChild(script);
       }
@@ -860,211 +791,14 @@ export default function CoordinateWorkspace() {
   }, [keyboardOpen, equationLatex]);
 
   const expressionEvaluator = useCallback(
-    (raw: string) => {
-      const sides = raw
-        .toLowerCase()
-        .replace(/−/g, "-")
-        .replace(/÷/g, "/")
-        .replace(/[·×]/g, "*")
-        .replace(/\s/g, "")
-        .split("=");
-      if (sides.length !== 2) throw new Error("equation");
-      const left = sides[0],
-        functionMatch = left.match(/^([a-z][a-z0-9_]*)\(x\)$/),
-        declaredName = functionMatch?.[1];
-      if (left !== "y" && !declaredName) throw new Error("equation");
-      let expression = sides[1];
-      const allowedFunctions = new Set([
-          "sqrt",
-          "abs",
-          "sin",
-          "cos",
-          "tan",
-          "ln",
-          "log",
-          "exp",
-          "pi",
-        ]),
-        words = expression.match(/[a-z]+/g) ?? [];
-      for (const word of words) {
-        if (
-          word !== "x" &&
-          !allowedFunctions.has(word) &&
-          !(word.length === 1 && Object.hasOwn(variables, word))
-        )
-          throw new Error("symbol");
-      }
-      if (!/^[0-9a-z+\-*/^().,]+$/.test(expression))
-        throw new Error("character");
-      expression = expression
-        .replace(/\^/g, "**")
-        .replace(/\bpi\b/g, "Math.PI")
-        .replace(/\bsqrt\b/g, "Math.sqrt")
-        .replace(/\babs\b/g, "Math.abs")
-        .replace(/\bsin\b/g, "Math.sin")
-        .replace(/\bcos\b/g, "Math.cos")
-        .replace(/\btan\b/g, "Math.tan")
-        .replace(/\bln\b/g, "Math.log")
-        .replace(/\blog\b/g, "Math.log10")
-        .replace(/\bexp\b/g, "Math.exp");
-      for (const name of Object.keys(variables))
-        expression = expression.replace(
-          new RegExp(`\\b${name}\\b`, "g"),
-          `vars.${name}`,
-        );
-      expression = expression.replace(/(\d|x|\))(?=(x|\())/g, "$1*");
-      const evaluate = new Function(
-        "x",
-        "vars",
-        `"use strict";return (${expression});`,
-      ) as (x: number, vars: Record<string, number>) => number;
-      return {
-        normalized: `${left}=${sides[1]}`,
-        declaredName,
-        evaluate: (x: number) => evaluate(x, variables),
-      };
-    },
+    (raw: string) => parseEquation(raw, variables),
     [variables],
   );
 
-  const pointById = useCallback(
-    (id?: string, seen = new Set<string>()): PointObject | undefined => {
-      if (!id || seen.has(id)) return;
-      const raw = objects.find(
-        (o): o is PointObject => o.type === "point" && o.id === id,
-      );
-      if (!raw) return;
-      seen.add(id);
-      if (raw.dependency?.kind === "midpoint") {
-        const a = pointById(raw.dependency.aId, seen),
-          b = pointById(raw.dependency.bId, seen);
-        if (a && b) return { ...raw, ...midpoint(a, b) };
-      }
-      if (raw.dependency?.kind === "function") {
-        const dependency = raw.dependency;
-        const fn = objects.find(
-          (object): object is FunctionObject =>
-            object.type === "function" &&
-            object.id === dependency.functionId,
-        );
-        if (fn) {
-          try {
-            const x = dependency.x,
-              y = expressionEvaluator(fn.expression).evaluate(x);
-            if (Number.isFinite(y)) return { ...raw, x, y };
-          } catch {}
-        }
-      }
-      if (raw.dependency?.kind === "onLine") {
-        const { sourceId, aId, bId, t } = raw.dependency;
-        const source = objects.find((o) => o.id === sourceId);
-        const ends = source && (source.type === "segment" || source.type === "line")
-            ? segmentResolverRef.current?.(source)
-            : aId && bId
-              ? { a: pointById(aId, new Set(seen)), b: pointById(bId, new Set(seen)) }
-            : null;
-        if (ends?.a && ends?.b)
-          return { ...raw, x: ends.a.x + t * (ends.b.x - ends.a.x), y: ends.a.y + t * (ends.b.y - ends.a.y) };
-      }
-      if (raw.dependency?.kind === "onCircle") {
-        const dependency = raw.dependency;
-        const source = objects.find((o): o is CircleObject => o.type === "circle" && o.id === dependency.sourceId);
-        const data = source && circleResolverRef.current?.(source);
-        if (data) return { ...raw, x: data.center.x + data.r * Math.cos(dependency.angle), y: data.center.y + data.r * Math.sin(dependency.angle) / circleRatio };
-      }
-      if (raw.dependency?.kind === "onSketch") {
-        const { sourceId, segment, t } = raw.dependency;
-        const sketch = objects.find((o): o is SketchObject => o.type === "sketch" && o.id === sourceId);
-        if (sketch?.points[segment + 1]) {
-          const a = sketch.points[segment], b = sketch.points[segment + 1];
-          return { ...raw, x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
-        }
-      }
-      return raw;
-    },
-    [expressionEvaluator, objects, circleRatio],
+  const { pointById, segmentPoints, circleData } = useMemo(
+    () => createGeometryResolver(objects, expressionEvaluator),
+    [objects, expressionEvaluator],
   );
-  const segmentPoints = useCallback(
-    (o: SegmentObject): { a: Point; b: Point } => {
-      const construction = o.construction;
-      if (
-        construction?.kind === "parallel" ||
-        construction?.kind === "perpendicular"
-      ) {
-        const sourceId = construction.sourceId,
-          source = objects.find(
-            (x): x is SegmentObject =>
-              (x.type === "segment" || x.type === "line") && x.id === sourceId,
-          ),
-          sourceA = pointById(construction.sourceAId),
-          sourceB = pointById(construction.sourceBId),
-          through = pointById(construction.throughId);
-        if ((source || (sourceA && sourceB)) && through) {
-          const sourceEnds = source
-              ? segmentPoints(source)
-              : { a: sourceA!, b: sourceB! },
-            dx = sourceEnds.b.x - sourceEnds.a.x,
-            dy = sourceEnds.b.y - sourceEnds.a.y,
-            vector =
-              construction.kind === "parallel"
-                ? { x: dx, y: dy }
-                : { x: -dy, y: dx };
-          return {
-            a: through,
-            b: { x: through.x + vector.x, y: through.y + vector.y },
-          };
-        }
-      }
-      if (construction?.kind === "angleBisector") {
-        const angle = construction.angleId
-            ? objects.find(
-                (x): x is AngleObject =>
-                  x.type === "angle" && x.id === construction.angleId,
-              )
-            : undefined,
-          a = pointById(angle?.aId ?? construction.aId),
-          v = pointById(angle?.vertexId ?? construction.vertexId),
-          c = pointById(angle?.cId ?? construction.cId);
-        if (a && v && c) {
-          const firstLength = distance(a, v),
-            secondLength = distance(c, v);
-          if (firstLength > 1e-10 && secondLength > 1e-10) {
-            const u1 = {
-                x: (a.x - v.x) / firstLength,
-                y: (a.y - v.y) / firstLength,
-              },
-              u2 = {
-                x: (c.x - v.x) / secondLength,
-                y: (c.y - v.y) / secondLength,
-              };
-            return { a: v, b: { x: v.x + u1.x + u2.x, y: v.y + u1.y + u2.y } };
-          }
-        }
-      }
-      return { a: pointById(o.aId) ?? o.a, b: pointById(o.bId) ?? o.b };
-    },
-    [objects, pointById],
-  );
-  const circleData = useCallback(
-    (o: CircleObject) => {
-      if (o.threePointIds) {
-        const [a, b, c] = o.threePointIds.map((id) => pointById(id));
-        if (a && b && c) {
-          const result = circleThroughThree(a, b, c);
-          if (result) return result;
-        }
-      }
-      const center = pointById(o.centerId) ?? o.center,
-        through = pointById(o.throughId) ?? o.through;
-      return {
-        center,
-        r: o.radius ?? (through ? distance(circleSpace(center), circleSpace(through)) : 1),
-      };
-    },
-    [pointById, circleRatio],
-  );
-  segmentResolverRef.current = segmentPoints;
-  circleResolverRef.current = circleData;
   const polygonPoints = useCallback(
     (o: PolygonObject) =>
       o.pointIds
@@ -1340,12 +1074,10 @@ export default function CoordinateWorkspace() {
           drawLabel(ctx, labels.join(" · "), center.x, center.y, o.color, o.id, "summary");
         if (o.showAngles)
           pts.forEach((p, i) => {
-            const prev = pts[(i - 1 + pts.length) % pts.length],
-              next = pts[(i + 1) % pts.length],
-              screen = screens[i];
+            const screen = screens[i];
             drawLabel(
               ctx,
-              `${round(angleDegrees(prev, p, next), 1)}°`,
+              `${round(polygonInteriorAngle(pts, i), 1)}°`,
               screen.x + 18,
               screen.y - 18,
               o.color,
@@ -1359,14 +1091,15 @@ export default function CoordinateWorkspace() {
       .forEach((o) => {
         const { center, r } = circleData(o),
           p = worldToScreen(center.x, center.y, w, h),
-          rp = r * viewport.scale * gridStep / xTickStep;
+          rp = r * viewport.scale * gridStep / xTickStep,
+          ry = r * viewport.scale * gridStep / yTickStep;
         ctx.save();
         ctx.strokeStyle = o.color;
         ctx.fillStyle = o.color + "20";
         ctx.lineWidth = o.strokeWidth + (o.id === selectedId ? 1.5 : 0);
         ctx.setLineDash(strokeDash(o.strokeStyle));
         ctx.beginPath();
-        ctx.arc(p.x, p.y, rp, 0, Math.PI * 2);
+        ctx.ellipse(p.x, p.y, rp, ry, 0, 0, Math.PI * 2);
         if (o.fill) ctx.fill();
         ctx.stroke();
         ctx.restore();
@@ -1393,7 +1126,7 @@ export default function CoordinateWorkspace() {
         if (o.showCircumference) labels.push(`p=${round(2 * Math.PI * r)}`);
         if (o.showArea) labels.push(`s=${round(Math.PI * r * r)}`);
         if (labels.length)
-          drawLabel(ctx, labels.join(" · "), p.x, p.y - rp - 18, o.color, o.id, "summary");
+          drawLabel(ctx, labels.join(" · "), p.x, p.y - ry - 18, o.color, o.id, "summary");
       });
     const sketches = objects.filter((o): o is SketchObject => o.type === "sketch" && !o.hidden);
     sketches.forEach((o) => {
@@ -1443,8 +1176,7 @@ export default function CoordinateWorkspace() {
         for (let sx = 0; sx <= w; sx += 2) {
           const x = screenToWorld(sx, h / 2, w, h).x;
           if (
-            (o.domainMin !== undefined && x < o.domainMin) ||
-            (o.domainMax !== undefined && x > o.domainMax)
+            !inFunctionDomain(x, o)
           ) {
             drawing = false;
             continue;
@@ -1775,7 +1507,9 @@ export default function CoordinateWorkspace() {
       ctx.strokeStyle = "#0f766e";
       ctx.beginPath();
       if (tool === "circle" || tool === "circleRadius") {
-        ctx.arc(a.x, a.y, Math.hypot(b.x - a.x, b.y - a.y), 0, Math.PI * 2);
+        const radius = distance(pending, pointer);
+        ctx.ellipse(a.x, a.y, radius * viewport.scale * gridStep / xTickStep,
+          radius * viewport.scale * gridStep / yTickStep, 0, 0, Math.PI * 2);
       } else {
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
@@ -1891,8 +1625,10 @@ export default function CoordinateWorkspace() {
           d = Math.min(d, distanceToSegment({ x: sx, y: sy }, worldToScreen(o.points[i - 1].x, o.points[i - 1].y, w, h), worldToScreen(o.points[i].x, o.points[i].y, w, h)));
       } else if (o.type === "circle") {
         const c = circleData(o);
-        const center = worldToScreen(c.center.x, c.center.y, w, h);
-        d = Math.abs(Math.hypot(sx - center.x, sy - center.y) - c.r * viewport.scale * gridStep / xTickStep);
+        const angle = Math.atan2(world.y - c.center.y, world.x - c.center.x);
+        const point = pointOnCircle(c.center, c.r, angle);
+        const screen = worldToScreen(point.x, point.y, w, h);
+        d = Math.hypot(sx - screen.x, sy - screen.y);
       } else if (o.type === "polygon") {
         const pts = polygonPoints(o);
         pts.forEach(
@@ -1930,7 +1666,8 @@ export default function CoordinateWorkspace() {
             x <= world.x + 14 * xTickStep / (viewport.scale * gridStep);
             x += xTickStep / (viewport.scale * gridStep)
           )
-            { const graph = worldToScreen(x, ev(x), w, h);
+            { if (!inFunctionDomain(x, o)) continue;
+              const graph = worldToScreen(x, ev(x), w, h);
               d = Math.min(d, Math.hypot(graph.x - sx, graph.y - sy)); }
         } catch {}
       }
@@ -2017,7 +1754,7 @@ export default function CoordinateWorkspace() {
       } else if (o.type === "circle") {
         const c = circleData(o),
           world = screenToWorld(sx, sy, w, h),
-          d = distance(circleSpace(c.center), circleSpace(world));
+          d = distance(c.center, world);
         if (d > 1e-9) {
           const point = {
               x: c.center.x + ((world.x - c.center.x) * c.r) / d,
@@ -2041,8 +1778,7 @@ export default function CoordinateWorkspace() {
           ) {
             const x = screenToWorld(screenX, sy, w, h).x;
             if (
-              (o.domainMin !== undefined && x < o.domainMin) ||
-              (o.domainMax !== undefined && x > o.domainMax)
+              !inFunctionDomain(x, o)
             )
               continue;
             const y = ev(x),
@@ -2092,10 +1828,11 @@ export default function CoordinateWorkspace() {
       return closest ? { x: closest.x, y: closest.y, dependency: closest.dependency } : null;
     }
     if (source.type === "circle") {
-      const data = circleData(source), angle = Math.atan2((target.y - data.center.y) * circleRatio, target.x - data.center.x);
-      return { x: data.center.x + data.r * Math.cos(angle), y: data.center.y + data.r * Math.sin(angle) / circleRatio, dependency: { kind: "onCircle", sourceId: source.id, angle } };
+      const data = circleData(source), angle = Math.atan2(target.y - data.center.y, target.x - data.center.x);
+      return { ...pointOnCircle(data.center, data.r, angle), dependency: { kind: "onCircle", sourceId: source.id, angle } };
     }
     if (source.type === "function") {
+      if (!inFunctionDomain(target.x, source)) return null;
       try {
         const y = expressionEvaluator(source.expression).evaluate(target.x);
         if (Number.isFinite(y)) return { x: target.x, y, dependency: { kind: "function", functionId: source.id, x: target.x } };
@@ -2156,251 +1893,9 @@ export default function CoordinateWorkspace() {
     second: MathObject,
     collectOnly = false,
   ): Point[] => {
-    let points: Point[] = [];
-    const isLine = (o: MathObject): o is SegmentObject =>
-      o.type === "line" || o.type === "segment";
-    const onObject = (point: Point, object: SegmentObject) => {
-      if (object.type === "line") return true;
-      const ends = segmentPoints(object);
-      return (
-        point.x >= Math.min(ends.a.x, ends.b.x) - 1e-7 &&
-        point.x <= Math.max(ends.a.x, ends.b.x) + 1e-7 &&
-        point.y >= Math.min(ends.a.y, ends.b.y) - 1e-7 &&
-        point.y <= Math.max(ends.a.y, ends.b.y) + 1e-7
-      );
-    };
-    const boundaryParts = (object: MathObject): MathObject[] => {
-      if (object.type === "polygon") {
-        const points = polygonPoints(object);
-        return points.map((point, index) => {
-          const next = points[(index + 1) % points.length];
-          return {
-            id: `${object.id}-edge-${index}`,
-            type: "segment",
-            name: `${point.name}${next.name}`,
-            a: point,
-            b: next,
-            aId: point.id,
-            bId: next.id,
-            color: object.color,
-            showLength: false,
-            showSlope: false,
-            showLabel: false,
-            strokeWidth: object.strokeWidth,
-            strokeStyle: object.strokeStyle,
-          } satisfies SegmentObject;
-        });
-      }
-      if (object.type === "angle") {
-        const a = pointById(object.aId),
-          vertex = pointById(object.vertexId),
-          c = pointById(object.cId);
-        if (!a || !vertex || !c) return [];
-        return [
-          {
-            id: `${object.id}-ray-a`,
-            type: "segment",
-            name: `${vertex.name}${a.name}`,
-            a: vertex,
-            b: a,
-            aId: vertex.id,
-            bId: a.id,
-            color: object.color,
-            showLength: false,
-            showSlope: false,
-            showLabel: false,
-            strokeWidth: object.strokeWidth,
-            strokeStyle: object.strokeStyle,
-          } satisfies SegmentObject,
-          {
-            id: `${object.id}-ray-c`,
-            type: "segment",
-            name: `${vertex.name}${c.name}`,
-            a: vertex,
-            b: c,
-            aId: vertex.id,
-            bId: c.id,
-            color: object.color,
-            showLength: false,
-            showSlope: false,
-            showLabel: false,
-            strokeWidth: object.strokeWidth,
-            strokeStyle: object.strokeStyle,
-          } satisfies SegmentObject,
-        ];
-      }
-      return [object];
-    };
-    const functionRange = (fn: FunctionObject) => ({
-      min: fn.domainMin ?? viewport.centerX - 20,
-      max: fn.domainMax ?? viewport.centerX + 20,
+    const points = findIntersections(first, second, {
+      centerX: viewport.centerX, pointById, segmentPoints, circleData, polygonPoints, expressionEvaluator,
     });
-    const rootsOf = (
-      evaluate: (x: number) => number,
-      min: number,
-      max: number,
-    ) => {
-      const roots: number[] = [];
-      const span = Math.max(0.001, max - min);
-      const step = Math.max(0.002, span / 1600);
-      let previousX = min,
-        previousValue = evaluate(min),
-        beforePreviousValue = previousValue,
-        beforePreviousX = previousX;
-      for (let x = min + step; x <= max + step / 2; x += step) {
-        const currentX = Math.min(x, max),
-          value = evaluate(currentX);
-        if (Number.isFinite(value) && Math.abs(value) < 1e-6)
-          roots.push(currentX);
-        if (
-          Number.isFinite(value) &&
-          Number.isFinite(previousValue) &&
-          value * previousValue < 0
-        ) {
-          let lo = previousX,
-            hi = currentX,
-            loValue = previousValue;
-          for (let iteration = 0; iteration < 40; iteration++) {
-            const middle = (lo + hi) / 2,
-              middleValue = evaluate(middle);
-            if (!Number.isFinite(middleValue)) break;
-            if (loValue * middleValue <= 0) hi = middle;
-            else {
-              lo = middle;
-              loValue = middleValue;
-            }
-          }
-          const root = (lo + hi) / 2;
-          if (Math.abs(evaluate(root)) < 1e-4) roots.push(root);
-        }
-        if (
-          Number.isFinite(beforePreviousValue) &&
-          Number.isFinite(previousValue) &&
-          Number.isFinite(value) &&
-          Math.abs(previousValue) <= Math.abs(beforePreviousValue) &&
-          Math.abs(previousValue) <= Math.abs(value)
-        ) {
-          let lo = beforePreviousX,
-            hi = currentX;
-          for (let iteration = 0; iteration < 36; iteration++) {
-            const left = lo + (hi - lo) / 3,
-              right = hi - (hi - lo) / 3;
-            if (Math.abs(evaluate(left)) <= Math.abs(evaluate(right))) hi = right;
-            else lo = left;
-          }
-          const candidate = (lo + hi) / 2;
-          if (Math.abs(evaluate(candidate)) < 1e-5) roots.push(candidate);
-        }
-        beforePreviousX = previousX;
-        beforePreviousValue = previousValue;
-        previousX = currentX;
-        previousValue = value;
-      }
-      return roots.filter(
-        (root, index) =>
-          roots.findIndex((candidate) => Math.abs(candidate - root) < 0.002) ===
-          index,
-      );
-    };
-    if (
-      first.type === "polygon" ||
-      second.type === "polygon" ||
-      first.type === "angle" ||
-      second.type === "angle"
-    ) {
-      const firstParts = boundaryParts(first),
-        secondParts = boundaryParts(second);
-      points = firstParts.flatMap((a) =>
-        secondParts.flatMap((b) => addIntersections(a, b, true)),
-      );
-    } else if (isLine(first) && isLine(second)) {
-      const a = segmentPoints(first),
-        b = segmentPoints(second),
-        p = lineIntersection(a.a, a.b, b.a, b.b);
-      if (p && onObject(p, first) && onObject(p, second)) points = [p];
-    } else if (
-      (isLine(first) && second.type === "circle") ||
-      (first.type === "circle" && isLine(second))
-    ) {
-      const line = isLine(first) ? first : (second as SegmentObject),
-        circle = first.type === "circle" ? first : (second as CircleObject),
-        l = segmentPoints(line),
-        c = circleData(circle);
-      points = lineCircleIntersections(circleSpace(l.a), circleSpace(l.b), circleSpace(c.center), c.r).map(fromCircleSpace).filter(
-        (point) => onObject(point, line),
-      );
-    } else if (first.type === "circle" && second.type === "circle") {
-      const a = circleData(first),
-        b = circleData(second);
-      points = circleCircleIntersections(circleSpace(a.center), a.r, circleSpace(b.center), b.r).map(fromCircleSpace);
-    } else if (
-      (isLine(first) && second.type === "function") ||
-      (first.type === "function" && isLine(second))
-    ) {
-      try {
-        const line = isLine(first) ? first : (second as SegmentObject),
-          fn = first.type === "function" ? first : (second as FunctionObject),
-          f = expressionEvaluator(fn.expression).evaluate,
-          ends = segmentPoints(line),
-          range = functionRange(fn);
-        if (Math.abs(ends.a.x - ends.b.x) < 1e-10) {
-          const x = ends.a.x,
-            y = f(x),
-            point = { x, y };
-          if (
-            x >= range.min &&
-            x <= range.max &&
-            Number.isFinite(y) &&
-            onObject(point, line)
-          )
-            points = [point];
-        } else {
-          const m = (ends.b.y - ends.a.y) / (ends.b.x - ends.a.x),
-            b = ends.a.y - m * ends.a.x;
-          points = rootsOf((x) => f(x) - (m * x + b), range.min, range.max)
-            .map((x) => ({ x, y: f(x) }))
-            .filter((point) => onObject(point, line));
-        }
-      } catch {}
-    } else if (
-      (first.type === "circle" && second.type === "function") ||
-      (first.type === "function" && second.type === "circle")
-    ) {
-      try {
-        const circle =
-            first.type === "circle" ? first : (second as CircleObject),
-          fn = first.type === "function" ? first : (second as FunctionObject),
-          f = expressionEvaluator(fn.expression).evaluate,
-          data = circleData(circle),
-          range = functionRange(fn);
-        points = rootsOf(
-          (x) =>
-            (x - data.center.x) ** 2 +
-            ((f(x) - data.center.y) * circleRatio) ** 2 -
-            data.r ** 2,
-          range.min,
-          range.max,
-        ).map((x) => ({ x, y: f(x) }));
-      } catch {}
-    } else if (first.type === "function" && second.type === "function") {
-      try {
-        const f = expressionEvaluator(first.expression).evaluate,
-          g = expressionEvaluator(second.expression).evaluate,
-          firstRange = functionRange(first),
-          secondRange = functionRange(second),
-          min = Math.max(firstRange.min, secondRange.min),
-          max = Math.min(firstRange.max, secondRange.max);
-        if (max >= min)
-          points = rootsOf((x) => f(x) - g(x), min, max).map((x) => ({
-            x,
-            y: f(x),
-          }));
-      } catch {}
-    }
-    points = points.filter(
-      (point, index, all) =>
-        all.findIndex((candidate) => distance(candidate, point) < 1e-5) === index,
-    );
     if (collectOnly) return points;
     if (!points.length) {
       setFeedback("לא נמצאו נקודות חיתוך בין שני האובייקטים");
@@ -2844,7 +2339,7 @@ export default function CoordinateWorkspace() {
         return;
       }
       const [a, b, c] = next.map((id) => pointById(id) ?? chosen.next.find((o): o is PointObject => o.type === "point" && o.id === id)!);
-      const data = circleThroughThree(a, b, c);
+      const data = circumcircle(a, b, c);
       if (!data) {
         setAnglePending([]);
         setFeedback("שלוש הנקודות נמצאות על ישר אחד ולכן אינן מגדירות מעגל");
@@ -3283,11 +2778,6 @@ export default function CoordinateWorkspace() {
       );
       return;
     }
-    const samples = [-3, -1, 0, 1, 3].map(parsed.evaluate);
-    if (samples.every((v) => !Number.isFinite(v))) {
-      setFeedback("הפונקציה אינה מחזירה ערכים שניתן להציג");
-      return;
-    }
     const editing = objects.find(
         (o): o is FunctionObject =>
           o.type === "function" && o.id === editingFunctionId,
@@ -3476,11 +2966,10 @@ export default function CoordinateWorkspace() {
         if (o.id === selected.id)
           return { ...o, name: nextName } as MathObject;
         if (o.type === "function" && oldSliderName) {
-          const pattern = new RegExp(`\\b${oldSliderName}\\b`, "g");
           return {
             ...o,
-            expression: o.expression.replace(pattern, nextName),
-            latex: o.latex.replace(pattern, nextName),
+            expression: renameMathVariable(o.expression, oldSliderName, nextName),
+            latex: renameMathVariable(o.latex, oldSliderName, nextName),
           };
         }
         return o;
@@ -3502,7 +2991,7 @@ export default function CoordinateWorkspace() {
       objects.some(
         (o) =>
           o.type === "function" &&
-          new RegExp(`\\b${selected.name}\\b`).test(o.expression),
+          expressionEvaluator(o.expression).usedVariables.has(selected.name),
       )
     ) {
       setFeedback(
@@ -4827,7 +4316,7 @@ export default function CoordinateWorkspace() {
                             <span />
                             גודל זוויות
                           </label>
-                          <div className="property-measures" dir="ltr">{polygonPoints(selected).map((point, index, points) => <bdi key={index} dir="ltr">∡{point.name}: {round(angleDegrees(points[(index - 1 + points.length) % points.length], point, points[(index + 1) % points.length]), 1)}°</bdi>)}</div>
+                          <div className="property-measures" dir="ltr">{polygonPoints(selected).map((point, index, points) => <bdi key={index} dir="ltr">∡{point.name}: {round(polygonInteriorAngle(points, index), 1)}°</bdi>)}</div>
                           <label className="toggle">
                             <input
                               type="checkbox"
@@ -5005,7 +4494,7 @@ export default function CoordinateWorkspace() {
                                 {[-2, -1, 0, 1, 2].map((x) => {
                                   let y = NaN;
                                   try {
-                                    y = expressionEvaluator(
+                                    if (inFunctionDomain(x, selected)) y = expressionEvaluator(
                                       selected.expression,
                                     ).evaluate(x);
                                   } catch {}

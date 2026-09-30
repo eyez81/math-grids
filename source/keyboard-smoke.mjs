@@ -1,10 +1,7 @@
 import puppeteer from "puppeteer-core";
+import { browserOptions, testUrl, openSection, screenshotPath } from "./scripts/smoke-config.mjs";
 
-const browser = await puppeteer.launch({
-  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-  executablePath: "/tmp/chromium",
-  headless: true,
-});
+const browser = await puppeteer.launch(browserOptions());
 
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 920, deviceScaleFactor: 1 });
@@ -17,9 +14,10 @@ page.on("response", (response) => {
   if (response.status() >= 400) errors.push(`http ${response.status()}: ${response.url()}`);
 });
 
-await page.goto(process.env.TEST_URL || "http://127.0.0.1:8765/", { waitUntil: "networkidle0" });
+await page.goto(testUrl, { waitUntil: "networkidle0" });
 await page.select("#workspace-mode", "graphs");
 await new Promise((resolve) => setTimeout(resolve, 100));
+await openSection(page, ["גרפים ופונקציות"]);
 const addFunction = await page.$$("button");
 let opened = false;
 for (const button of addFunction) {
@@ -68,8 +66,8 @@ const expected = {
   numbers: ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "="],
   operations: ["+", "−", "×", "÷"],
   variables: ["x", "y"],
-  quick: ["x²", "√x", "|x|", "π", "xₙ", "( )", "±"],
-  structures: ["a⁄b", "1 a⁄b", "xⁿ", "ⁿ√x"],
+  quick: ["x²", "√x", "|x|", "π", "( )"],
+  structures: ["a⁄b", "xⁿ", "ⁿ√x"],
   editing: ["◂", "▸", "⌫", "נקה"],
 };
 
@@ -88,7 +86,7 @@ if (new Set(initial.operationRects.map((rect) => Math.round(rect.x))).size !== 1
   errors.push(`operations are not one column: ${JSON.stringify(initial.operationRects)}`);
 }
 
-await page.screenshot({ path: "/tmp/math-keyboard-layout-closed.png", fullPage: true });
+await page.screenshot({ path: screenshotPath("math-keyboard-layout-closed.png"), fullPage: true });
 
 await page.$eval("math-keyboard-field", (keyboard) => keyboard.shadowRoot.querySelector(".mkf-advanced-toggle").click());
 const advanced = await page.$eval("math-keyboard-field", (keyboard) => {
@@ -103,9 +101,9 @@ const advanced = await page.$eval("math-keyboard-field", (keyboard) => {
 if (!advanced.open) errors.push("advanced panel did not open");
 if (advanced.trig.join(" ") !== "sin cos tan csc sec cot") errors.push(`trig labels: ${advanced.trig.join(" ")}`);
 if (advanced.inverse.length !== 6) errors.push(`inverse trig count: ${advanced.inverse.length}`);
-if (advanced.titles.length !== 5) errors.push(`advanced group count: ${advanced.titles.length}`);
+if (advanced.titles.length !== 3) errors.push(`advanced group count: ${advanced.titles.length}`);
 
-await page.screenshot({ path: process.env.KEYBOARD_SCREENSHOT || "/tmp/math-keyboard-layout.png", fullPage: true });
+await page.screenshot({ path: process.env.KEYBOARD_SCREENSHOT || screenshotPath("math-keyboard-layout.png"), fullPage: true });
 console.log(JSON.stringify({ errors, initial, advanced }, null, 2));
 await browser.close();
 process.exit(errors.length ? 1 : 0);

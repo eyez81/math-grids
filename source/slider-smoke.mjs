@@ -1,10 +1,7 @@
 import puppeteer from "puppeteer-core";
+import { browserOptions, testUrl, openSection, screenshotPath } from "./scripts/smoke-config.mjs";
 
-const browser = await puppeteer.launch({
-  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-  executablePath: process.env.CHROMIUM_PATH || "/tmp/chromium",
-  headless: true,
-});
+const browser = await puppeteer.launch(browserOptions());
 const page = await browser.newPage();
 await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
 const errors = [];
@@ -18,6 +15,7 @@ page.on("response", (response) => {
 
 const pause = () => new Promise((resolve) => setTimeout(resolve, 100));
 const clickButton = async (wanted) => {
+  if (wanted.includes("הוספת פונקציה")) await openSection(page, ["גרפים ופונקציות"]);
   for (const button of await page.$$("button")) {
     const label = await button.evaluate((element) =>
       (element.textContent || "").replace(/\s+/g, " ").trim(),
@@ -46,14 +44,13 @@ const addFunction = async (expression) => {
   await clickButton("הוספה למישור");
 };
 
-const testUrl = process.env.TEST_URL || "http://127.0.0.1:8765/math-grids-81/";
 const expressions = [
-  "f(x)=ax+b",
-  "g(x)=a*sin(x)",
-  "h(x)=(x-a)^2+b",
-  "p(x)=sqrt(abs(ax))+b",
-  "q(x)=2a+x",
-  "r(x)=a(x+1)",
+  { latex: "f(x)=ax+b", normalized: "f(x)=ax+b" },
+  { latex: "g(x)=a\\sin(x)", normalized: "g(x)=asin(x)" },
+  { latex: "h(x)=(x-a)^2+b", normalized: "h(x)=(x-a)^2+b" },
+  { latex: "p(x)=\\sqrt{\\left|ax\\right|}+b", normalized: "p(x)=sqrt(|ax|)+b" },
+  { latex: "q(x)=2a+x", normalized: "q(x)=2a+x" },
+  { latex: "r(x)=a(x+1)", normalized: "r(x)=a(x+1)" },
 ];
 const canvasHash = () =>
   page.$eval("canvas", (canvas) => {
@@ -77,11 +74,12 @@ for (const expression of expressions) {
   );
   if (!names.includes("a") || !names.includes("b"))
     errors.push(`sliders were not created: ${names.join(", ")}`);
-  await addFunction(expression);
+  await addFunction(expression.latex);
   const titles = await page.$$eval(".function-object-label", (nodes) =>
     nodes.map((node) => node.getAttribute("title")),
   );
-  if (!titles.includes(expression)) errors.push(`dynamic function was not added: ${expression}`);
+  if (!titles.includes(expression.normalized))
+    errors.push(`dynamic function was not added: ${expression.latex}; titles=${titles.join(", ")}`);
   if (expression === expressions[0]) {
     const before = await canvasHash();
     await page.focus(".live-slider input[type=range]");

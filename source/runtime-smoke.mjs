@@ -1,77 +1,43 @@
-import { JSDOM, VirtualConsole } from "jsdom";
+import puppeteer from "puppeteer-core";
+import { browserOptions, openSection, testUrl } from "./scripts/smoke-config.mjs";
 
+const browser = await puppeteer.launch(browserOptions());
+const page = await browser.newPage();
 const errors = [];
-const virtualConsole = new VirtualConsole();
-virtualConsole.on("jsdomError", (error) => errors.push(`jsdom: ${error.stack || error}`));
-virtualConsole.on("error", (...args) => errors.push(`console: ${args.join(" ")}`));
-
-const context = new Proxy(
-  {
-    measureText: (text) => ({ width: String(text).length * 8 }),
-    createLinearGradient: () => ({ addColorStop() {} }),
-    createRadialGradient: () => ({ addColorStop() {} }),
-    getLineDash: () => [],
-  },
-  {
-    get(target, key) {
-      if (key in target) return target[key];
-      return () => {};
-    },
-    set() {
-      return true;
-    },
-  },
-);
-
-const dom = await JSDOM.fromURL("http://127.0.0.1:8765/", {
-  resources: "usable",
-  runScripts: "dangerously",
-  pretendToBeVisual: true,
-  virtualConsole,
-  beforeParse(window) {
-    window.ResizeObserver = class {
-      observe() {}
-      disconnect() {}
-    };
-    window.HTMLCanvasElement.prototype.getContext = () => context;
-    window.HTMLCanvasElement.prototype.toDataURL = () => "data:image/png;base64,";
-    window.HTMLCanvasElement.prototype.getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      right: 900,
-      bottom: 600,
-      width: 900,
-      height: 600,
-      x: 0,
-      y: 0,
-      toJSON() {},
-    });
-    window.HTMLElement.prototype.scrollIntoView = () => {};
-    window.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);
-  },
+page.on("pageerror", (error) => errors.push(`pageerror: ${error.stack || error}`));
+page.on("console", (message) => {
+  if (message.type() === "error") errors.push(`console: ${message.text()}`);
+});
+page.on("response", (response) => {
+  if (response.status() >= 400) errors.push(`http ${response.status()}: ${response.url()}`);
 });
 
-await new Promise((resolve) => setTimeout(resolve, 1500));
-const { document } = dom.window;
-const canvas = document.querySelector("canvas");
-const buttons = [...document.querySelectorAll("button")];
-const pointButton = buttons.find((button) => button.textContent?.includes("נקודה"));
-if (!canvas || !pointButton) errors.push("missing canvas or point tool");
+await page.goto(testUrl, { waitUntil: "networkidle0" });
+await page.waitForSelector("canvas");
+await openSection(page, ["נקודות", "כלים בסיסיים"]);
+const pointButton = await page.$$(".tool-grid button").then(async (buttons) => {
+  for (const button of buttons) {
+    if (await button.evaluate((element) => element.textContent?.includes("נקודה"))) return button;
+  }
+  return null;
+});
+const canvas = await page.$("canvas");
+if (!pointButton || !canvas) errors.push("missing canvas or point tool");
 else {
-  pointButton.click();
-  canvas.dispatchEvent(
-    new dom.window.MouseEvent("pointerdown", {
-      bubbles: true,
-      clientX: 480,
-      clientY: 260,
-      button: 0,
-    }),
-  );
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const cards = document.querySelectorAll(".object-card");
-  if (cards.length !== 1) errors.push(`expected 1 object card, got ${cards.length}`);
+  await pointButton.evaluate((button) => button.click());
+  const box = await canvas.boundingBox();
+  if (!box) errors.push("canvas has no bounding box");
+  else {
+    await page.mouse.click(box.x + box.width / 2 + 64, box.y + box.height / 2 - 64);
+    await page.waitForFunction(() => document.querySelectorAll(".object-card").length === 1);
+  }
 }
 
-console.log(JSON.stringify({ errors, title: document.title, html: document.body.textContent?.slice(0, 200) }));
-dom.window.close();
+const state = await page.evaluate(() => ({
+  title: document.title,
+  canvas: Boolean(document.querySelector("canvas")),
+  objects: document.querySelectorAll(".object-card").length,
+}));
+console.log(JSON.stringify({ errors, state }));
+await browser.close();
 process.exit(errors.length ? 1 : 0);

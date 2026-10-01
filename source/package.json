@@ -7,13 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "test": "node --import tsx --test tests/*.test.ts tests/*.test.mts",
-    "typecheck": "tsc --noEmit",
-    "export:pages": "npm run build && node scripts/export-pages.mjs",
-    "serve": "node scripts/serve.mjs",
-    "test:smoke": "node browser-smoke.mjs && node feature-smoke.mjs && node keyboard-smoke.mjs && node slider-smoke.mjs",
-    "test:runtime": "node runtime-smoke.mjs"
+    "build": "next build"
   },
   "dependencies": {
     "mathlive": "^0.107.1",
@@ -26,9 +20,7 @@
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "puppeteer-core": "^25.12.0",
     "tailwindcss": "4.2.1",
-    "tsx": "^4.23.15",
     "typescript": "5.9.3"
   },
   "displayName": "המרחב המתמטי"

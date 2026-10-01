@@ -1,7 +1,10 @@
 import puppeteer from "puppeteer-core";
-import { browserOptions, testUrl, openSection, screenshotPath } from "./scripts/smoke-config.mjs";
 
-const browser = await puppeteer.launch(browserOptions());
+const browser = await puppeteer.launch({
+  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+  executablePath: "/tmp/chromium",
+  headless: true,
+});
 const page = await browser.newPage();
 await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
 const errors = [];
@@ -16,7 +19,6 @@ page.on("response", (response) => {
 const pause = () => new Promise((resolve) => setTimeout(resolve, 150));
 const buttons = async () => page.$$("button");
 const clickButton = async (wanted) => {
-  if (wanted.includes("הוספת פונקציה")) await openSection(page, ["גרפים ופונקציות"]);
   const candidates = [];
   for (const button of await buttons()) {
     const text = await button.evaluate((element) =>
@@ -35,24 +37,22 @@ const clickButton = async (wanted) => {
 };
 const objectCount = () => page.$$eval(".object-card", (cards) => cards.length);
 const clickTool = async (wanted) => {
-  const constructionTools = ["נקודת אמצע", "מקביל", "מאונך", "אנך אמצעי", "תיכון במשולש", "חוצה זווית", "נקודות חיתוך"];
-  await openSection(page, [constructionTools.includes(wanted) ? "בניות עזר" : "כלים בסיסיים", "נקודות", "קטעים וצורות"]);
-  const clicked = await page.$$eval(".tool-grid button", (buttons, wanted) => {
-    const button = buttons.find((element) =>
-      (element.textContent || "").replace(/\s+/g, " ").trim().endsWith(wanted));
-    button?.click();
-    return Boolean(button);
-  }, wanted);
-  if (clicked) {
-    await pause();
-    return;
+  const candidates = await page.$$(".tool-grid button");
+  for (const button of candidates) {
+    const text = await button.evaluate((element) =>
+      (element.textContent || "").replace(/\s+/g, " ").trim(),
+    );
+    if (text.endsWith(wanted)) {
+      await button.click();
+      await pause();
+      return;
+    }
   }
   throw new Error(`Tool not found: ${wanted}`);
 };
 
-await page.goto(testUrl, { waitUntil: "networkidle0" });
+await page.goto(process.env.TEST_URL || "http://127.0.0.1:8765/", { waitUntil: "networkidle0" });
 await page.waitForSelector("canvas");
-await openSection(page, ["תצוגה והגדרות"]);
 await page.$$eval("label.toggle", (labels) => {
   const snapLabel = labels.find((label) =>
     (label.textContent || "").includes("הצמדה"),
@@ -282,7 +282,7 @@ const state = await page.evaluate(() => ({
   bodyText: document.body.innerText.slice(0, 300),
 }));
 state.testPoints = { pointB, pointC, firstSidePick };
-await page.screenshot({ path: screenshotPath("mathfix-smoke.png"), fullPage: true });
+await page.screenshot({ path: "/tmp/mathfix-smoke.png", fullPage: true });
 console.log(JSON.stringify({ errors, state }));
 await browser.close();
 process.exit(errors.length ? 1 : 0);

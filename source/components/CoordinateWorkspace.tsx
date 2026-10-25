@@ -544,6 +544,26 @@ const clampScale = (scale: number, step: number) =>
     scaleForGridStep(step) / 40,
     Math.min(scaleForGridStep(step) * 40, scale),
   );
+type QuadrantView = "all" | "q1" | "q2" | "q3" | "q4" | "top" | "bottom" | "right" | "left";
+const QUADRANT_VIEWS: { value: QuadrantView; label: string }[] = [
+  { value: "all", label: "כל הרבעים" },
+  { value: "q1", label: "רבע ראשון (I)" },
+  { value: "q2", label: "רבע שני (II)" },
+  { value: "q3", label: "רבע שלישי (III)" },
+  { value: "q4", label: "רבע רביעי (IV)" },
+  { value: "top", label: "חצי עליון (I + II)" },
+  { value: "bottom", label: "חצי תחתון (III + IV)" },
+  { value: "right", label: "חצי ימני (I + IV)" },
+  { value: "left", label: "חצי שמאלי (II + III)" },
+];
+const QUADRANT_ORIGIN_MARGIN = 44;
+// Visible world region for a quadrant view: each bound is either 0 or unbounded.
+const quadrantBounds = (view: QuadrantView) => ({
+  xMin: ["q1", "q4", "right"].includes(view) ? 0 : -Infinity,
+  xMax: ["q2", "q3", "left"].includes(view) ? 0 : Infinity,
+  yMin: ["q1", "q2", "top"].includes(view) ? 0 : -Infinity,
+  yMax: ["q3", "q4", "bottom"].includes(view) ? 0 : Infinity,
+});
 
 const ToolSection = ({
   title,
@@ -634,6 +654,8 @@ export default function CoordinateWorkspace() {
     [showGrid, setShowGrid] = useState(true),
     [showAxes, setShowAxes] = useState(true),
     [showNumbers, setShowNumbers] = useState(true),
+    [quadrantView, setQuadrantView] = useState<QuadrantView>("all"),
+    [clipToQuadrants, setClipToQuadrants] = useState(true),
     [xAxisName, setXAxisName] = useState("x"),
     [yAxisName, setYAxisName] = useState("y"),
     [pending, setPending] = useState<ConstructionPoint | null>(null);
@@ -931,7 +953,34 @@ export default function CoordinateWorkspace() {
       maxX = viewport.centerX + w * xTickStep / (2 * viewport.scale * gridStep),
       minY = viewport.centerY - h * yTickStep / (2 * viewport.scale * gridStep),
       maxY = viewport.centerY + h * yTickStep / (2 * viewport.scale * gridStep);
+    const region = quadrantView === "all" ? null : quadrantBounds(quadrantView),
+      regionOrigin = worldToScreen(0, 0, w, h),
+      regionRect = region && {
+        left: region.xMin === 0 ? Math.max(0, Math.min(w, regionOrigin.x)) : 0,
+        right: region.xMax === 0 ? Math.max(0, Math.min(w, regionOrigin.x)) : w,
+        top: region.yMax === 0 ? Math.max(0, Math.min(h, regionOrigin.y)) : 0,
+        bottom: region.yMin === 0 ? Math.max(0, Math.min(h, regionOrigin.y)) : h,
+      },
+      outsideRegion = (axis: "x" | "y", value: number) =>
+        Boolean(region) &&
+        (axis === "x"
+          ? value < region!.xMin || value > region!.xMax
+          : value < region!.yMin || value > region!.yMax),
+      clipToRegion = (pad: number) => {
+        if (!regionRect) return false;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(
+          regionRect.left - pad,
+          regionRect.top - pad,
+          regionRect.right - regionRect.left + pad * 2,
+          regionRect.bottom - regionRect.top + pad * 2,
+        );
+        ctx.clip();
+        return true;
+      };
     if (showGrid) {
+      const clippedGrid = clipToRegion(0);
       ctx.strokeStyle = "#e7edf1";
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -954,28 +1003,33 @@ export default function CoordinateWorkspace() {
         ctx.lineTo(w, p.y);
       }
       ctx.stroke();
+      if (clippedGrid) ctx.restore();
     }
     const origin = worldToScreen(0, 0, w, h);
     if (showAxes) {
     ctx.strokeStyle = "#334155";
     ctx.lineWidth = 1.7;
     ctx.beginPath();
-    ctx.moveTo(0, origin.y);
-    ctx.lineTo(w, origin.y);
-    ctx.moveTo(origin.x, 0);
-    ctx.lineTo(origin.x, h);
+    ctx.moveTo(regionRect ? regionRect.left : 0, origin.y);
+    ctx.lineTo(regionRect ? regionRect.right : w, origin.y);
+    ctx.moveTo(origin.x, regionRect ? regionRect.top : 0);
+    ctx.lineTo(origin.x, regionRect ? regionRect.bottom : h);
     ctx.stroke();
     ctx.fillStyle = "#334155";
+    if (!region || region.xMax === Infinity) {
     ctx.beginPath();
     ctx.moveTo(w - 7, origin.y - 5);
     ctx.lineTo(w, origin.y);
     ctx.lineTo(w - 7, origin.y + 5);
     ctx.fill();
+    }
+    if (!region || region.yMax === Infinity) {
     ctx.beginPath();
     ctx.moveTo(origin.x - 5, 7);
     ctx.lineTo(origin.x, 0);
     ctx.lineTo(origin.x + 5, 7);
     ctx.fill();
+    }
     ctx.font = "12px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
@@ -984,7 +1038,7 @@ export default function CoordinateWorkspace() {
       x <= maxX;
       x += visibleXStep
     ) {
-      if (Math.abs(x) < 1e-8) continue;
+      if (Math.abs(x) < 1e-8 || outsideRegion("x", x)) continue;
       const p = worldToScreen(x, 0, w, h);
       ctx.beginPath();
       ctx.moveTo(p.x, origin.y - 4);
@@ -993,7 +1047,7 @@ export default function CoordinateWorkspace() {
       if (showNumbers && !customXLabels.size) ctx.fillText(String(round(x)), p.x, origin.y + 7);
     }
     if (showNumbers) customXLabels.forEach((label, x) => {
-      if (x < minX || x > maxX) return;
+      if (x < minX || x > maxX || outsideRegion("x", x)) return;
       const p = worldToScreen(x, 0, w, h);
       ctx.beginPath(); ctx.moveTo(p.x, origin.y - 5); ctx.lineTo(p.x, origin.y + 5); ctx.stroke();
       ctx.fillText(label, p.x, origin.y + 7);
@@ -1005,7 +1059,7 @@ export default function CoordinateWorkspace() {
       y <= maxY;
       y += visibleYStep
     ) {
-      if (Math.abs(y) < 1e-8) continue;
+      if (Math.abs(y) < 1e-8 || outsideRegion("y", y)) continue;
       const p = worldToScreen(0, y, w, h);
       ctx.beginPath();
       ctx.moveTo(origin.x - 4, p.y);
@@ -1014,17 +1068,18 @@ export default function CoordinateWorkspace() {
       if (showNumbers && !customYLabels.size) ctx.fillText(String(round(y)), origin.x - 8, p.y);
     }
     if (showNumbers) customYLabels.forEach((label, y) => {
-      if (y < minY || y > maxY) return;
+      if (y < minY || y > maxY || outsideRegion("y", y)) return;
       const p = worldToScreen(0, y, w, h);
       ctx.beginPath(); ctx.moveTo(origin.x - 5, p.y); ctx.lineTo(origin.x + 5, p.y); ctx.stroke();
       ctx.fillText(label, origin.x - 8, p.y);
     });
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(xAxisName || "x", w - 12, Math.max(15, Math.min(h - 20, origin.y - 14)));
+    ctx.fillText(xAxisName || "x", (regionRect ? regionRect.right : w) - 12, Math.max(15, Math.min(h - 20, origin.y - 14)));
     ctx.textAlign = "left";
-    ctx.fillText(yAxisName || "y", Math.max(12, Math.min(w - 90, origin.x + 18)), 12);
+    ctx.fillText(yAxisName || "y", Math.max(12, Math.min(w - 90, origin.x + 18)), (regionRect ? regionRect.top : 0) + 12);
     }
+    const clippedShapes = clipToQuadrants && clipToRegion(3);
     objects
       .filter((o): o is PolygonObject => o.type === "polygon" && !o.hidden)
       .forEach((o) => {
@@ -1128,6 +1183,7 @@ export default function CoordinateWorkspace() {
         if (labels.length)
           drawLabel(ctx, labels.join(" · "), p.x, p.y - ry - 18, o.color, o.id, "summary");
       });
+    if (clippedShapes) ctx.restore();
     const sketches = objects.filter((o): o is SketchObject => o.type === "sketch" && !o.hidden);
     sketches.forEach((o) => {
       ctx.save();
@@ -1156,6 +1212,7 @@ export default function CoordinateWorkspace() {
       ctx.stroke();
       ctx.restore();
     }
+    const clippedCurves = clipToQuadrants && clipToRegion(3);
     objects
       .filter((o): o is FunctionObject => o.type === "function" && !o.hidden)
       .forEach((o) => {
@@ -1267,6 +1324,7 @@ export default function CoordinateWorkspace() {
             "measurement",
           );
       });
+    if (clippedCurves) ctx.restore();
     objects
       .filter((o): o is AngleObject => o.type === "angle" && !o.hidden)
       .forEach((o) => {
@@ -1551,6 +1609,8 @@ export default function CoordinateWorkspace() {
     showGrid,
     showAxes,
     showNumbers,
+    quadrantView,
+    clipToQuadrants,
     xAxisName,
     yAxisName,
     tool,
@@ -3249,12 +3309,27 @@ export default function CoordinateWorkspace() {
         setFuture((f) => f.slice(1));
       }
     },
+    quadrantViewport = (view: QuadrantView, scale: number): Viewport => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (view === "all" || !rect) return { centerX: 0, centerY: 0, scale };
+      // Move the origin to the matching corner or edge so the chosen quadrants fill the canvas.
+      const bounds = quadrantBounds(view),
+        unitsX = xTickStep / (scale * gridStep),
+        unitsY = yTickStep / (scale * gridStep),
+        offsetX = Math.max(0, rect.width / 2 - QUADRANT_ORIGIN_MARGIN) * unitsX,
+        offsetY = Math.max(0, rect.height / 2 - QUADRANT_ORIGIN_MARGIN) * unitsY;
+      return {
+        centerX: bounds.xMin === 0 ? offsetX : bounds.xMax === 0 ? -offsetX : 0,
+        centerY: bounds.yMin === 0 ? offsetY : bounds.yMax === 0 ? -offsetY : 0,
+        scale,
+      };
+    },
+    chooseQuadrantView = (view: QuadrantView) => {
+      setQuadrantView(view);
+      setViewport(quadrantViewport(view, viewport.scale));
+    },
     fit = () =>
-      setViewport({
-        centerX: 0,
-        centerY: 0,
-        scale: scaleForGridStep(gridStep),
-      });
+      setViewport(quadrantViewport(quadrantView, scaleForGridStep(gridStep)));
   const resetWorkspace = () => {
     if (
       objects.length &&
@@ -3280,6 +3355,8 @@ export default function CoordinateWorkspace() {
     setAxisLabels({ x: {}, y: {} });
     setLabelAxis("x");
     setLabelRange(20);
+    setQuadrantView("all");
+    setClipToQuadrants(true);
   };
   const applyGridStep = (raw: string) => {
     const v = Number(raw);
@@ -3513,6 +3590,21 @@ export default function CoordinateWorkspace() {
               <span />
               הצגת צירים
             </label>
+            <label className="quadrant-control">
+              רבעים מוצגים
+              <select value={quadrantView} onChange={(e) => chooseQuadrantView(e.target.value as QuadrantView)}>
+                {QUADRANT_VIEWS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            {quadrantView !== "all" && (
+              <label className="toggle">
+                <input type="checkbox" checked={clipToQuadrants} onChange={(e) => setClipToQuadrants(e.target.checked)} />
+                <span />
+                חיתוך גרפים וצורות לתחום
+              </label>
+            )}
             <div className="axis-name-fields">
               <label>שם הציר האופקי<input value={xAxisName} onChange={(e) => setXAxisName(e.target.value)} /></label>
               <label>שם הציר האנכי<input value={yAxisName} onChange={(e) => setYAxisName(e.target.value)} /></label>

@@ -1,11 +1,13 @@
 import { circumcircle, distance, midpoint, pointOnCircle } from "./geometry";
-import type { MathObject, PointObject, SegmentObject, CircleObject, AngleObject, FunctionObject, SketchObject, Point } from "./geometry";
+import type { MathObject, PointObject, SegmentObject, CircleObject, AngleObject, FunctionObject, SketchObject, PolygonObject, Point } from "./geometry";
+import { findIntersections } from "./intersections";
 
 /** Resolve dependencies in mathematical coordinates, independently of the viewport. */
 export function createGeometryResolver(
   objects: MathObject[],
   expressionEvaluator: (expression: string) => { evaluate: (x: number) => number },
 ) {
+  const resolvingIntersections = new Set<string>();
   const pointById = (id?: string, seen = new Set<string>()): PointObject | undefined => {
       if (!id || seen.has(id)) return;
       const raw = objects.find(
@@ -56,6 +58,32 @@ export function createGeometryResolver(
         if (sketch?.points[segment + 1]) {
           const a = sketch.points[segment], b = sketch.points[segment + 1];
           return { ...raw, x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+        }
+      }
+      if (raw.dependency?.kind === "intersection") {
+        const { firstId, secondId } = raw.dependency,
+          first = objects.find((o) => o.id === firstId),
+          second = objects.find((o) => o.id === secondId);
+        if (!first || !second || resolvingIntersections.has(raw.id)) return { ...raw, detached: true };
+        resolvingIntersections.add(raw.id);
+        try {
+          // The stored coordinates are the last known position, so the nearest candidate keeps the same branch.
+          const candidates = findIntersections(first, second, {
+            // Quantized so small moves do not shift the function root search grid.
+            centerX: Math.round(raw.x / 10) * 10,
+            pointById: (pointId) => pointById(pointId, new Set(seen)),
+            segmentPoints,
+            circleData,
+            polygonPoints: (polygon: PolygonObject) =>
+              polygon.pointIds
+                .map((pointId) => pointById(pointId, new Set(seen)))
+                .filter((point): point is PointObject => Boolean(point)),
+            expressionEvaluator,
+          });
+          const nearest = candidates.sort((a, b) => distance(a, raw) - distance(b, raw))[0];
+          return nearest ? { ...raw, x: nearest.x, y: nearest.y } : { ...raw, detached: true };
+        } finally {
+          resolvingIntersections.delete(raw.id);
         }
       }
       return raw;

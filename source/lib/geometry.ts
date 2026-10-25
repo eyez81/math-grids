@@ -19,7 +19,10 @@ export type PointObject = {
     | { kind: "function"; functionId: string; x: number }
     | { kind: "onLine"; sourceId: string; t: number; aId?: string; bId?: string }
     | { kind: "onCircle"; sourceId: string; angle: number }
-    | { kind: "onSketch"; sourceId: string; segment: number; t: number };
+    | { kind: "onSketch"; sourceId: string; segment: number; t: number }
+    | { kind: "intersection"; firstId: string; secondId: string };
+  /** Set by the resolver when an intersection point's objects no longer meet. */
+  detached?: boolean;
 };
 
 export type SegmentObject = {

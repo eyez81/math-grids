@@ -83,6 +83,8 @@ type LabelHitbox = {
   height: number;
 };
 type IntersectionCandidate = Point & { sourceIds: [string, string] };
+type CropRect = { x: number; y: number; w: number; h: number };
+type CropDrag = { mode: "new" | "move" | "nw" | "ne" | "sw" | "se"; sx: number; sy: number; start: CropRect | null };
 type TextHitbox = {
   objectId: string;
   x: number;
@@ -626,7 +628,8 @@ export default function CoordinateWorkspace() {
     labelHitboxesRef = useRef<LabelHitbox[]>([]),
     textHitboxesRef = useRef<TextHitbox[]>([]);
   const keyboardFieldRef = useRef<MathKeyboardElement | null>(null),
-    dragStartObjectsRef = useRef<MathObject[] | null>(null);
+    dragStartObjectsRef = useRef<MathObject[] | null>(null),
+    cropDragRef = useRef<CropDrag | null>(null);
   const [objects, setObjects] = useState<MathObject[]>([]),
     [history, setHistory] = useState<MathObject[][]>([]),
     [future, setFuture] = useState<MathObject[][]>([]);
@@ -655,6 +658,7 @@ export default function CoordinateWorkspace() {
     [showAxes, setShowAxes] = useState(true),
     [showNumbers, setShowNumbers] = useState(true),
     [quadrantView, setQuadrantView] = useState<QuadrantView>("all"),
+    [crop, setCrop] = useState<{ rect: CropRect | null; dragging: boolean } | null>(null),
     [clipToQuadrants, setClipToQuadrants] = useState(true),
     [xAxisName, setXAxisName] = useState("x"),
     [yAxisName, setYAxisName] = useState("y"),
@@ -821,6 +825,22 @@ export default function CoordinateWorkspace() {
     () => createGeometryResolver(objects, expressionEvaluator),
     [objects, expressionEvaluator],
   );
+  useEffect(() => {
+    // Remember where each intersection point now is, so it stays on the same branch next time.
+    const updates = new Map<string, Point>();
+    objects.forEach((o) => {
+      if (o.type !== "point" || o.dependency?.kind !== "intersection") return;
+      const resolved = pointById(o.id);
+      if (resolved && !resolved.detached && distance(resolved, o) > 1e-7) updates.set(o.id, resolved);
+    });
+    if (updates.size)
+      setObjects((current) =>
+        current.map((o) => {
+          const update = updates.get(o.id);
+          return update && o.type === "point" ? { ...o, x: update.x, y: update.y } : o;
+        }),
+      );
+  }, [objects, pointById]);
   const polygonPoints = useCallback(
     (o: PolygonObject) =>
       o.pointIds
@@ -1400,6 +1420,7 @@ export default function CoordinateWorkspace() {
       .forEach((raw) => {
         const o = pointById(raw.id) ?? raw,
           p = worldToScreen(o.x, o.y, w, h);
+        if (o.detached) return;
         if (o.guides) {
           ctx.save();
           ctx.setLineDash([5, 5]);
@@ -1646,7 +1667,7 @@ export default function CoordinateWorkspace() {
       .find((o) => {
         const p = pointById(o.id) ?? o,
           s = worldToScreen(p.x, p.y, w, h);
-        return Math.hypot(s.x - sx, s.y - sy) < 13;
+        return !p.detached && Math.hypot(s.x - sx, s.y - sy) < 13;
       });
   const distanceToSegment = (p: Point, a: Point, b: Point, extend = false) => {
     const dx = b.x - a.x,
@@ -1900,6 +1921,80 @@ export default function CoordinateWorkspace() {
     }
     return null;
   };
+  // Makes `object` pass through `target` by changing only free values: a circle's radius, or one end of a line.
+  const adaptObjectThrough = (object: MathObject, target: Point, current: MathObject[], pivotHint: Point) => {
+    const freePoint = (id?: string) => {
+      const point = id ? current.find((o): o is PointObject => o.type === "point" && o.id === id) : undefined;
+      return id ? (point && !point.dependency ? point : null) : undefined;
+    };
+    const movePoint = (id: string, to: Point) =>
+      current.map((o) => (o.id === id && o.type === "point" ? { ...o, x: to.x, y: to.y } : o));
+    if (object.type === "circle") {
+      if (object.threePointIds) return null;
+      const { center } = circleData(object),
+        r = distance(center, target);
+      if (r < 1e-9) return null;
+      if (object.radius !== undefined)
+        return current.map((o) => (o.id === object.id ? { ...object, radius: r } : o));
+      const through = object.throughId ? pointById(object.throughId) : object.through;
+      if (!through) return null;
+      const length = distance(center, through),
+        unit = length > 1e-9
+          ? { x: (through.x - center.x) / length, y: (through.y - center.y) / length }
+          : { x: 1, y: 0 },
+        moved = { x: center.x + unit.x * r, y: center.y + unit.y * r };
+      if (!object.throughId)
+        return current.map((o) => (o.id === object.id ? { ...object, through: moved } : o));
+      return freePoint(object.throughId) ? movePoint(object.throughId, moved) : null;
+    }
+    if (object.type === "segment" || object.type === "line") {
+      if (object.construction) return null;
+      const ends = segmentPoints(object),
+        options = [
+          { pivot: ends.a, mover: ends.b, moverId: object.bId, key: "b" as const },
+          { pivot: ends.b, mover: ends.a, moverId: object.aId, key: "a" as const },
+        ].sort((x, y) => distance(y.pivot, pivotHint) - distance(x.pivot, pivotHint));
+      // Prefer rotating around the end that is farther from the intersection.
+      for (const { pivot, mover, moverId, key } of options) {
+        if (freePoint(moverId) === null) continue;
+        const toTarget = distance(pivot, target),
+          length = distance(pivot, mover);
+        if (toTarget < 1e-9 || length < 1e-9) continue;
+        const reach = object.type === "segment" ? Math.max(length, toTarget) : length,
+          moved = {
+            x: pivot.x + ((target.x - pivot.x) / toTarget) * reach,
+            y: pivot.y + ((target.y - pivot.y) / toTarget) * reach,
+          };
+        return moverId
+          ? movePoint(moverId, moved)
+          : current.map((o) => (o.id === object.id ? { ...object, [key]: moved } : o));
+      }
+    }
+    return null;
+  };
+  // Dragging an intersection point slides it along one object and adapts the other one to keep meeting it.
+  const dragIntersectionPoint = (pointId: string, target: Point) => {
+    const raw = objects.find((o): o is PointObject => o.type === "point" && o.id === pointId),
+      dependency = raw?.dependency;
+    if (!raw || dependency?.kind !== "intersection") return null;
+    const first = objects.find((o) => o.id === dependency.firstId),
+      second = objects.find((o) => o.id === dependency.secondId),
+      current = pointById(pointId);
+    if (!first || !second || !current || current.detached) return null;
+    let best: { next: MathObject[]; distance: number } | null = null;
+    for (const [guide, other] of [[first, second], [second, first]]) {
+      const slid = pointOnObject(guide.id, target);
+      if (!slid) continue;
+      const adapted = adaptObjectThrough(other, slid, objects, current);
+      if (!adapted) continue;
+      const next = adapted.map((o) => (o.id === pointId && o.type === "point" ? { ...o, x: slid.x, y: slid.y } : o)),
+        check = createGeometryResolver(next, expressionEvaluator).pointById(pointId);
+      if (!check || check.detached || distance(check, slid) > 1e-6 * Math.max(1, Math.hypot(slid.x, slid.y))) continue;
+      const score = distance(target, slid);
+      if (!best || score < best.distance) best = { next, distance: score };
+    }
+    return best?.next ?? null;
+  };
   const getOrCreatePoint = (cp: ConstructionPoint, current: MathObject[]) => {
     if (cp.pointId) return { id: cp.pointId, next: current };
     const p: PointObject = {
@@ -1985,6 +2080,7 @@ export default function CoordinateWorkspace() {
         showName: true,
         showCoords: true,
         guides: false,
+        dependency: { kind: "intersection", firstId: first.id, secondId: second.id },
       };
       next = [...next, o];
       return o;
@@ -2093,6 +2189,7 @@ export default function CoordinateWorkspace() {
         showName: true,
         showCoords: true,
         guides: false,
+        dependency: { kind: "intersection", firstId: candidate.sourceIds[0], secondId: candidate.sourceIds[1] },
       };
       pushObjects([...objects, created]);
       setSelectedId(created.id);
@@ -2773,6 +2870,12 @@ export default function CoordinateWorkspace() {
         ),
       );
       setMagneticTarget(null);
+    } else if (
+      dragging.id &&
+      objects.some((o) => o.id === dragging.id && o.type === "point" && o.dependency?.kind === "intersection")
+    ) {
+      const next = dragIntersectionPoint(dragging.id, screenToWorld(p.x, p.y, p.w, p.h));
+      if (next) setObjects(next);
     } else if (dragging.id)
       setObjects((os) =>
         os.map((o) =>
@@ -3107,6 +3210,8 @@ export default function CoordinateWorkspace() {
                   ? ids.has(o.dependency.aId) || ids.has(o.dependency.bId)
                   : o.dependency.kind === "function"
                     ? ids.has(o.dependency.functionId)
+                    : o.dependency.kind === "intersection"
+                    ? ids.has(o.dependency.firstId) || ids.has(o.dependency.secondId)
                     : ids.has(o.dependency.sourceId) ||
                       (o.dependency.kind === "onLine" &&
                         Boolean((o.dependency.aId && ids.has(o.dependency.aId)) || (o.dependency.bId && ids.has(o.dependency.bId))))),
@@ -3281,6 +3386,112 @@ export default function CoordinateWorkspace() {
     });
     ctx.restore();
   };
+  const cropPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(box.width, e.clientX - box.left)),
+      y: Math.max(0, Math.min(box.height, e.clientY - box.top)),
+      w: box.width,
+      h: box.height,
+    };
+  };
+  const startCrop = (e: React.PointerEvent<HTMLDivElement>) => {
+    const p = cropPointer(e),
+      handle = (e.target as HTMLElement).closest<HTMLElement>("[data-crop]")?.dataset.crop as CropDrag["mode"] | undefined;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    cropDragRef.current = { mode: handle ?? "new", sx: p.x, sy: p.y, start: crop?.rect ?? null };
+    setCrop((current) => current && { ...current, dragging: true });
+  };
+  const moveCrop = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = cropDragRef.current;
+    if (!drag) return;
+    const p = cropPointer(e),
+      start = drag.start;
+    let rect: CropRect;
+    if (drag.mode === "move" && start) {
+      rect = {
+        ...start,
+        x: Math.max(0, Math.min(p.w - start.w, start.x + p.x - drag.sx)),
+        y: Math.max(0, Math.min(p.h - start.h, start.y + p.y - drag.sy)),
+      };
+    } else {
+      // A new rectangle or a dragged corner: keep the opposite corner fixed.
+      const fixed =
+        drag.mode === "new" || !start
+          ? { x: drag.sx, y: drag.sy }
+          : {
+              x: drag.mode.includes("w") ? start.x + start.w : start.x,
+              y: drag.mode.includes("n") ? start.y + start.h : start.y,
+            };
+      rect = {
+        x: Math.min(fixed.x, p.x),
+        y: Math.min(fixed.y, p.y),
+        w: Math.abs(p.x - fixed.x),
+        h: Math.abs(p.y - fixed.y),
+      };
+    }
+    setCrop({ rect, dragging: true });
+  };
+  const endCrop = () => {
+    cropDragRef.current = null;
+    setCrop((current) => current && {
+      rect: current.rect && current.rect.w >= 8 && current.rect.h >= 8 ? current.rect : null,
+      dragging: false,
+    });
+  };
+  const exportCrop = (action: "save" | "copy") => {
+    const rect = crop?.rect,
+      canvas = canvasRef.current;
+    if (!rect || !canvas) return;
+    const dpr = canvas.width / Math.max(1, canvas.getBoundingClientRect().width);
+    draw();
+    const image = new Promise<Blob>((resolve, reject) =>
+      requestAnimationFrame(() => {
+        const ctx = canvas.getContext("2d");
+        if (ctx) drawSliderPanelForExport(ctx);
+        const out = document.createElement("canvas");
+        out.width = Math.max(1, Math.round(rect.w * dpr));
+        out.height = Math.max(1, Math.round(rect.h * dpr));
+        out.getContext("2d")?.drawImage(canvas, rect.x * dpr, rect.y * dpr, rect.w * dpr, rect.h * dpr, 0, 0, out.width, out.height);
+        draw();
+        out.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))), "image/png");
+      }),
+    );
+    if (action === "save") {
+      image.then((blob) => {
+        const url = URL.createObjectURL(blob),
+          link = document.createElement("a");
+        link.download = "המרחב-המתמטי-אזור.png";
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+      setCrop(null);
+      setFeedback("האזור שנבחר נשמר כתמונה");
+      return;
+    }
+    if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+      setFeedback("הדפדפן אינו מאפשר העתקת תמונה — נסו את שמירת התמונה");
+      return;
+    }
+    // The clipboard item receives the promise right away so the copy still counts as part of the click.
+    navigator.clipboard
+      .write([new ClipboardItem({ "image/png": image })])
+      .then(() => {
+        setCrop(null);
+        setFeedback("האזור הועתק — אפשר להדביק אותו במסמך");
+      })
+      .catch(() => setFeedback("ההעתקה נכשלה — נסו את שמירת התמונה"));
+  };
+  useEffect(() => {
+    if (!crop) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCrop(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [crop]);
   const exportPng = () => {
     draw();
     requestAnimationFrame(() => {
@@ -4100,7 +4311,57 @@ export default function CoordinateWorkspace() {
               </div>
             </section>
           )}
+          {crop && (
+            <div
+              className={`crop-overlay${crop.rect ? " has-rect" : ""}`}
+              onPointerDown={startCrop}
+              onPointerMove={moveCrop}
+              onPointerUp={endCrop}
+              onPointerCancel={endCrop}
+            >
+              {!crop.rect && !crop.dragging && (
+                <div className="crop-hint">גררו מלבן סביב האזור שתרצו לייצא · Esc לביטול</div>
+              )}
+              {crop.rect && (
+                <div
+                  className="crop-box"
+                  data-crop="move"
+                  style={{ left: crop.rect.x, top: crop.rect.y, width: crop.rect.w, height: crop.rect.h }}
+                >
+                  {(["nw", "ne", "sw", "se"] as const).map((corner) => (
+                    <span key={corner} className={`crop-handle ${corner}`} data-crop={corner} />
+                  ))}
+                </div>
+              )}
+              {crop.rect && !crop.dragging && (() => {
+                const rect = crop.rect,
+                  area = wrapRef.current?.getBoundingClientRect(),
+                  width = area?.width ?? 0,
+                  height = area?.height ?? 0,
+                  top = rect.y + rect.h + 52 <= height ? rect.y + rect.h + 10 : rect.y >= 52 ? rect.y - 46 : rect.y + 10,
+                  center = Math.max(150, Math.min(width - 150, rect.x + rect.w / 2));
+                return (
+                  <div
+                    className="crop-actions"
+                    style={{ top, left: center }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <button className="crop-primary" onClick={() => exportCrop("save")}>⇩ שמירת תמונה</button>
+                    <button onClick={() => exportCrop("copy")}>⧉ העתקה</button>
+                    <button onClick={() => setCrop(null)}>ביטול</button>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
           <div className="canvas-hint">{hint}</div>
+          <button
+            className="crop-launch"
+            title="בחירת אזור במישור ושמירתו כתמונה או העתקתו"
+            onClick={() => setCrop({ rect: null, dragging: false })}
+          >
+            ✂ ייצוא אזור
+          </button>
           <div className="zoom">
             <button
               onClick={() =>

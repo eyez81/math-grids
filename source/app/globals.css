@@ -2087,3 +2087,105 @@ select {
   height: 34px;
   padding: 0 8px;
 }
+.crop-launch {
+  position: absolute;
+  bottom: 16px;
+  right: 148px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 4px 14px #20343b1a;
+  color: #344a54;
+  font-size: 13px;
+  cursor: pointer;
+}
+.crop-launch:hover {
+  background: #f2f7f7;
+}
+@media (max-width: 700px) {
+  .crop-launch {
+    display: none;
+  }
+}
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  background: rgba(15, 23, 42, 0.32);
+}
+.crop-overlay.has-rect {
+  background: transparent;
+}
+.crop-box {
+  position: absolute;
+  border: 2px dashed #fff;
+  outline: 1px solid var(--teal);
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.38);
+  cursor: move;
+}
+.crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--teal);
+  border-radius: 3px;
+}
+.crop-handle.nw { left: -8px; top: -8px; cursor: nwse-resize; }
+.crop-handle.se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.crop-handle.ne { right: -8px; top: -8px; cursor: nesw-resize; }
+.crop-handle.sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
+.crop-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  box-shadow: 0 6px 18px #20343b33;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.crop-actions {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 18px #20343b33;
+  cursor: default;
+}
+.crop-actions button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #344a54;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.crop-actions button:hover {
+  background: #f2f7f7;
+}
+.crop-actions .crop-primary {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+  font-weight: 700;
+}
+.crop-actions .crop-primary:hover {
+  background: var(--teal);
+  filter: brightness(1.08);
+}

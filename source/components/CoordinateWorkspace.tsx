@@ -1889,8 +1889,9 @@ export default function CoordinateWorkspace() {
     }
     return best;
   };
-  const pointOnObject = (objectId: string, target: Point): ConstructionPoint | null => {
-    const source = objects.find((o) => o.id === objectId && !o.hidden);
+  const pointOnObject = (objectId: string, target: Point, includeHidden = false): ConstructionPoint | null => {
+    // Hidden objects cannot receive new points, but points already attached to them stay draggable.
+    const source = objects.find((o) => o.id === objectId && (includeHidden || !o.hidden));
     if (!source) return null;
     if (source.type === "sketch") {
       const projection = projectToSketch(source.points, target, xTickStep, yTickStep);
@@ -2897,7 +2898,7 @@ export default function CoordinateWorkspace() {
                 }
               : o.dependency?.kind === "onLine" || o.dependency?.kind === "onCircle" || o.dependency?.kind === "onSketch"
                 ? (() => {
-                    const constrained = pointOnObject(o.dependency.sourceId, screenToWorld(p.x, p.y, p.w, p.h));
+                    const constrained = pointOnObject(o.dependency.sourceId, screenToWorld(p.x, p.y, p.w, p.h), true);
                     return constrained ? { ...o, x: constrained.x, y: constrained.y, dependency: constrained.dependency } : o;
                   })()
               : { ...o, x: world.x, y: world.y }

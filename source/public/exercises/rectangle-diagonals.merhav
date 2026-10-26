@@ -1,0 +1,484 @@
+{
+  "format": "merhav-scene",
+  "version": 1,
+  "title": "מלבן — הזווית בין האלכסונים",
+  "savedAt": "2026-10-26T16:58:13.154Z",
+  "settings": {
+    "mode": "measurement",
+    "viewport": {
+      "centerX": 0,
+      "centerY": 0.6,
+      "scale": 64
+    },
+    "gridStep": 1,
+    "xTickStep": 1,
+    "yTickStep": 1,
+    "axisLabels": {
+      "x": {},
+      "y": {}
+    },
+    "snap": false,
+    "showGrid": false,
+    "showAxes": false,
+    "showNumbers": false,
+    "quadrantView": "all",
+    "clipToQuadrants": true,
+    "xAxisName": "x",
+    "yAxisName": "y"
+  },
+  "objects": [
+    {
+      "id": "D",
+      "type": "point",
+      "name": "D",
+      "x": -4,
+      "y": -2.6,
+      "color": "#2563eb",
+      "showName": true,
+      "showCoords": false,
+      "guides": false
+    },
+    {
+      "id": "C",
+      "type": "point",
+      "name": "C",
+      "x": 4,
+      "y": -2.6,
+      "color": "#2563eb",
+      "showName": true,
+      "showCoords": false,
+      "guides": false
+    },
+    {
+      "id": "DC",
+      "type": "segment",
+      "name": "DC",
+      "a": {
+        "x": -4,
+        "y": -2.6
+      },
+      "b": {
+        "x": 4,
+        "y": -2.6
+      },
+      "aId": "D",
+      "bId": "C",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "perpD",
+      "type": "line",
+      "name": "אנך ל־DC דרך D",
+      "a": {
+        "x": -4,
+        "y": -2.6
+      },
+      "b": {
+        "x": -4,
+        "y": 5.4
+      },
+      "aId": "D",
+      "color": "#94a3b8",
+      "hidden": true,
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 1.5,
+      "strokeStyle": "dashed",
+      "construction": {
+        "kind": "perpendicular",
+        "sourceId": "DC",
+        "throughId": "D"
+      }
+    },
+    {
+      "id": "perpC",
+      "type": "line",
+      "name": "אנך ל־DC דרך C",
+      "a": {
+        "x": 4,
+        "y": -2.6
+      },
+      "b": {
+        "x": 4,
+        "y": 5.4
+      },
+      "aId": "C",
+      "color": "#94a3b8",
+      "hidden": true,
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 1.5,
+      "strokeStyle": "dashed",
+      "construction": {
+        "kind": "perpendicular",
+        "sourceId": "DC",
+        "throughId": "C"
+      }
+    },
+    {
+      "id": "A",
+      "type": "point",
+      "name": "A",
+      "x": -4,
+      "y": 3.212340224042886,
+      "color": "#2563eb",
+      "showName": true,
+      "showCoords": false,
+      "guides": false,
+      "dependency": {
+        "kind": "onLine",
+        "sourceId": "perpD",
+        "t": 0.7265425280053608
+      }
+    },
+    {
+      "id": "parA",
+      "type": "line",
+      "name": "מקביל ל־DC דרך A",
+      "a": {
+        "x": -4,
+        "y": 3.212340224042886
+      },
+      "b": {
+        "x": 4,
+        "y": 3.212340224042886
+      },
+      "aId": "A",
+      "color": "#94a3b8",
+      "hidden": true,
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 1.5,
+      "strokeStyle": "dashed",
+      "construction": {
+        "kind": "parallel",
+        "sourceId": "DC",
+        "throughId": "A"
+      }
+    },
+    {
+      "id": "B",
+      "type": "point",
+      "name": "B",
+      "x": 4,
+      "y": 3.212340224042886,
+      "color": "#111827",
+      "showName": true,
+      "showCoords": false,
+      "guides": false,
+      "dependency": {
+        "kind": "intersection",
+        "firstId": "perpC",
+        "secondId": "parA"
+      }
+    },
+    {
+      "id": "AB",
+      "type": "segment",
+      "name": "AB",
+      "a": {
+        "x": -4,
+        "y": 3.212340224042886
+      },
+      "b": {
+        "x": 4,
+        "y": 3.212340224042886
+      },
+      "aId": "A",
+      "bId": "B",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "BC",
+      "type": "segment",
+      "name": "BC",
+      "a": {
+        "x": 4,
+        "y": 3.212340224042886
+      },
+      "b": {
+        "x": 4,
+        "y": -2.6
+      },
+      "aId": "B",
+      "bId": "C",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "DA",
+      "type": "segment",
+      "name": "DA",
+      "a": {
+        "x": -4,
+        "y": -2.6
+      },
+      "b": {
+        "x": -4,
+        "y": 3.212340224042886
+      },
+      "aId": "D",
+      "bId": "A",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "AC",
+      "type": "segment",
+      "name": "AC",
+      "a": {
+        "x": -4,
+        "y": 3.212340224042886
+      },
+      "b": {
+        "x": 4,
+        "y": -2.6
+      },
+      "aId": "A",
+      "bId": "C",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "BD",
+      "type": "segment",
+      "name": "BD",
+      "a": {
+        "x": 4,
+        "y": 3.212340224042886
+      },
+      "b": {
+        "x": -4,
+        "y": -2.6
+      },
+      "aId": "B",
+      "bId": "D",
+      "color": "#111827",
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "O",
+      "type": "point",
+      "name": "O",
+      "x": 0,
+      "y": 0.30617011202144306,
+      "color": "#111827",
+      "showName": true,
+      "showCoords": false,
+      "guides": false,
+      "dependency": {
+        "kind": "intersection",
+        "firstId": "AC",
+        "secondId": "BD"
+      }
+    },
+    {
+      "id": "M",
+      "type": "point",
+      "name": "M",
+      "x": -2,
+      "y": -1.1469149439892785,
+      "color": "#111827",
+      "showName": true,
+      "showCoords": false,
+      "guides": false,
+      "hidden": true,
+      "dependency": {
+        "kind": "midpoint",
+        "aId": "O",
+        "bId": "D"
+      }
+    },
+    {
+      "id": "bisOD",
+      "type": "line",
+      "name": "אנך אמצעי ל־OD",
+      "a": {
+        "x": -2,
+        "y": -1.1469149439892785
+      },
+      "b": {
+        "x": -4.906170112021443,
+        "y": 2.8530850560107215
+      },
+      "aId": "M",
+      "color": "#94a3b8",
+      "hidden": true,
+      "showLength": false,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 1.5,
+      "strokeStyle": "dashed",
+      "construction": {
+        "kind": "perpendicular",
+        "sourceAId": "O",
+        "sourceBId": "D",
+        "throughId": "M"
+      }
+    },
+    {
+      "id": "E",
+      "type": "point",
+      "name": "E",
+      "x": -0.944271909999159,
+      "y": -2.6,
+      "color": "#dc2626",
+      "showName": true,
+      "showCoords": false,
+      "guides": false,
+      "dependency": {
+        "kind": "intersection",
+        "firstId": "bisOD",
+        "secondId": "DC"
+      }
+    },
+    {
+      "id": "OE",
+      "type": "segment",
+      "name": "OE",
+      "a": {
+        "x": 0,
+        "y": 0.30617011202144306
+      },
+      "b": {
+        "x": -0.944271909999159,
+        "y": -2.6
+      },
+      "aId": "O",
+      "bId": "E",
+      "color": "#dc2626",
+      "showLength": true,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "DE",
+      "type": "segment",
+      "name": "DE",
+      "a": {
+        "x": -4,
+        "y": -2.6
+      },
+      "b": {
+        "x": -0.944271909999159,
+        "y": -2.6
+      },
+      "aId": "D",
+      "bId": "E",
+      "color": "#dc2626",
+      "showLength": true,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "CE",
+      "type": "segment",
+      "name": "CE",
+      "a": {
+        "x": 4,
+        "y": -2.6
+      },
+      "b": {
+        "x": -0.944271909999159,
+        "y": -2.6
+      },
+      "aId": "C",
+      "bId": "E",
+      "color": "#0f766e",
+      "showLength": true,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 3.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "OC",
+      "type": "segment",
+      "name": "OC",
+      "a": {
+        "x": 0,
+        "y": 0.30617011202144306
+      },
+      "b": {
+        "x": 4,
+        "y": -2.6
+      },
+      "aId": "O",
+      "bId": "C",
+      "color": "#0f766e",
+      "showLength": true,
+      "showSlope": false,
+      "showLabel": false,
+      "strokeWidth": 3.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "angAOD",
+      "type": "angle",
+      "name": "∠AOD",
+      "aId": "A",
+      "vertexId": "O",
+      "cId": "D",
+      "color": "#7c3aed",
+      "showMeasure": true,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "angODC",
+      "type": "angle",
+      "name": "∠ODC",
+      "aId": "O",
+      "vertexId": "D",
+      "cId": "C",
+      "color": "#ea580c",
+      "showMeasure": true,
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid"
+    },
+    {
+      "id": "note",
+      "type": "text",
+      "name": "הנחיה",
+      "text": "גררו את A: הנתונים מתקיימים רק כאשר CE = CO",
+      "x": 4,
+      "y": 4.412340224042886,
+      "fontSize": 18,
+      "bold": true,
+      "color": "#0f766e"
+    }
+  ]
+}

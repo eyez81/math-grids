@@ -1471,7 +1471,7 @@ select {
     font-size: 17px;
   }
   .top-actions .export-action:before {
-    content: "⇩";
+    content: "📁";
     font-size: 17px;
   }
 }
@@ -2061,6 +2061,7 @@ select {
 @media (min-width: 701px) and (max-width: 1100px) {
   .top-actions > button.view-reset, .top-actions > button.export-action { width: 42px; min-width: 42px; padding: 0; font-size: 0; }
   .top-actions > button.view-reset::before, .top-actions > button.export-action::before { font-size: 18px; }
+  .top-actions > button.file-action::before { content: "📁"; }
 }
 @media (min-width: 701px) and (max-width: 1100px) {
   .app-shell { grid-template-rows: 102px auto minmax(0, 1fr); }
@@ -2189,3 +2190,19 @@ select {
   background: var(--teal);
   filter: brightness(1.08);
 }
+
+.file-menu-backdrop { position: fixed; inset: 0; z-index: 900; }
+.file-menu { position: fixed; direction: rtl; width: 260px; display: grid; gap: 2px; padding: 6px; border: 1px solid #c7dcdf; border-radius: 12px; background: #fff; box-shadow: 0 12px 32px #102b4933; }
+.file-menu > button { display: grid; gap: 2px; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: #173944; font: inherit; text-align: right; cursor: pointer; }
+.file-menu > button:hover, .file-menu > button:focus-visible { background: #edf7f6; }
+.file-menu > button > span { font-size: 14px; font-weight: 700; }
+.file-menu > button small { color: #657884; font-size: 12px; }
+.save-dialog { max-width: 440px; }
+.save-dialog p { margin: 0; color: #4c626b; font-size: 14px; line-height: 1.6; }
+.save-dialog label { font-weight: 700; color: #173944; }
+.save-dialog small { color: #657884; }
+.save-dialog-actions { display: flex; justify-content: flex-start; gap: 8px; }
+.save-dialog-actions button { min-height: 40px; padding: 0 18px; border: 1px solid #abc6cc; border-radius: 9px; background: #fff; color: #173944; font: inherit; font-weight: 700; cursor: pointer; }
+.save-dialog-actions button.primary { border-color: #00817a; background: #00817a; color: #fff; }
+.canvas-area.scene-drop { outline: 3px dashed #00817a; outline-offset: -8px; }
+.canvas-area.scene-drop::after { content: "שחררו כדי לפתוח את השרטוט"; position: absolute; top: 18px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 9px; background: #00817a; color: #fff; font-weight: 700; pointer-events: none; }

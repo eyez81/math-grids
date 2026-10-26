@@ -44,6 +44,7 @@ import { findIntersections } from "../lib/intersections";
 import { parseEquation, renameMathVariable } from "../lib/expressions";
 import { createGeometryResolver } from "../lib/resolveGeometry";
 import { beautifySketch } from "../lib/sketch";
+import { SCENE_EXTENSION, parseScene, sceneFileName, serializeScene } from "../lib/sceneFile";
 
 type MathKeyboardElement = HTMLElement & {
   value: string;
@@ -375,7 +376,9 @@ const HELP_ENTRIES: HelpEntry[] = [
   { title: "עריכת טקסט", mode: "coordinates", keepMode: true, section: "objects", keywords: "הערה גודל גופן מודגש צבע", definition: "טקסט הוא אובייקט שאפשר לשנות לאחר מיקומו.", instruction: "בחרו את הטקסט ברשימת האובייקטים ושנו את התוכן, גודל הגופן, הדגשה, צבע ונראות במאפיינים. אפשר לגרור אותו במישור." },
   { title: "מאפייני מחוון", mode: "graphs", keepMode: true, section: "objects", keywords: "משתנה טווח מינימום מקסימום צעד ערך הצגה על המישור", definition: "למחוון יש ערך משתנה, טווח וצעד; אפשר להציג אותו על המישור.", instruction: "בחרו מחוון ברשימת האובייקטים כדי לשנות ערך, גבולות, צעד והצגה על המישור. שינוי ערכו מעדכן פונקציות שמשתמשות במשתנה." },
   { title: "ביטול וביצוע מחדש", mode: "coordinates", keepMode: true, section: "view", keywords: "undo redo חזור", definition: "חזרה לפעולה קודמת או החזרת פעולה שבוטלה.", instruction: "השתמשו בשני כפתורי החצים ליד חדש בכותרת." },
-  { title: "ייצוא PNG", mode: "coordinates", keepMode: true, section: "view", keywords: "הורדה תמונה שמירה", definition: "שמירת תמונה של המישור והאובייקטים שעליו.", instruction: "לחצו ייצוא PNG בכותרת כדי להוריד תמונה." },
+  { title: "ייצוא PNG", mode: "coordinates", keepMode: true, section: "view", keywords: "הורדה תמונה שמירה", definition: "שמירת תמונה של המישור והאובייקטים שעליו.", instruction: "בתפריט קובץ בכותרת לחצו ייצוא PNG כדי להוריד תמונה." },
+  { title: "שמירת שרטוט", mode: "coordinates", keepMode: true, section: "view", keywords: "שמירה קובץ הורדה merhav שאלה", definition: "שמירת השרטוט כקובץ מסוג merhav שאפשר לפתוח שוב ולהמשיך לגרור ולשנות.", instruction: "בתפריט קובץ בכותרת לחצו שמירת שרטוט, בחרו שם ולחצו שמירה." },
+  { title: "פתיחת שרטוט", mode: "coordinates", keepMode: true, section: "view", keywords: "פתיחה טעינה העלאה קובץ merhav שאלה", definition: "פתיחת שרטוט שנשמר כקובץ מסוג merhav, עם כל האובייקטים והגדרות התצוגה.", instruction: "בתפריט קובץ בכותרת לחצו פתיחת שרטוט, או גררו את הקובץ אל המישור." },
   { title: "דף חדש", mode: "coordinates", keepMode: true, section: "view", keywords: "איפוס הכל התחלה מחדש", definition: "פתיחת מישור עבודה ריק.", instruction: "לחצו + חדש בכותרת כדי להתחיל דף חדש." },
 ];
 const STROKE_STYLES: { value: StrokeStyle; label: string }[] = [
@@ -629,7 +632,8 @@ export default function CoordinateWorkspace() {
     textHitboxesRef = useRef<TextHitbox[]>([]);
   const keyboardFieldRef = useRef<MathKeyboardElement | null>(null),
     dragStartObjectsRef = useRef<MathObject[] | null>(null),
-    cropDragRef = useRef<CropDrag | null>(null);
+    cropDragRef = useRef<CropDrag | null>(null),
+    sceneInputRef = useRef<HTMLInputElement>(null);
   const [objects, setObjects] = useState<MathObject[]>([]),
     [history, setHistory] = useState<MathObject[][]>([]),
     [future, setFuture] = useState<MathObject[][]>([]);
@@ -700,6 +704,10 @@ export default function CoordinateWorkspace() {
     [sliderMax, setSliderMax] = useState(5),
     [sliderStep, setSliderStep] = useState(0.1),
     [sliderValue, setSliderValue] = useState(1);
+  const [fileMenu, setFileMenu] = useState<{ left: number; top: number } | null>(null),
+    [saveDialogOpen, setSaveDialogOpen] = useState(false),
+    [sceneTitle, setSceneTitle] = useState("שרטוט"),
+    [sceneDragOver, setSceneDragOver] = useState(false);
   const [textDraft, setTextDraft] = useState(""),
     [textSize, setTextSize] = useState(24),
     [textBold, setTextBold] = useState(false);
@@ -3569,6 +3577,65 @@ export default function CoordinateWorkspace() {
     setQuadrantView("all");
     setClipToQuadrants(true);
   };
+  const saveScene = () => {
+    const title = sceneTitle.trim() || "שרטוט";
+    const text = serializeScene(
+      title,
+      { mode, viewport, gridStep, xTickStep, yTickStep, axisLabels, snap, showGrid, showAxes, showNumbers, quadrantView, clipToQuadrants, xAxisName, yAxisName },
+      objects,
+    );
+    const link = document.createElement("a");
+    link.download = sceneFileName(title);
+    link.href = URL.createObjectURL(new Blob([text], { type: "application/octet-stream" }));
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    setSaveDialogOpen(false);
+    setFeedback(`השרטוט נשמר בשם ${link.download}`);
+  };
+  const openSceneFile = async (file: File) => {
+    let scene: ReturnType<typeof parseScene>;
+    try {
+      scene = parseScene(await file.text());
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "לא ניתן לפתוח את הקובץ.");
+      return;
+    }
+    if (objects.length && !window.confirm("לפתוח את השרטוט במקום השרטוט הנוכחי?")) return;
+    const { settings } = scene;
+    const loadedMode = settings.mode && settings.mode in MODES ? (settings.mode as Mode) : "advanced";
+    setObjects(scene.objects);
+    setHistory([]);
+    setFuture([]);
+    setSelectedId(null);
+    setOpenPropertiesId(null);
+    resetPending();
+    setTool("select");
+    setMode(loadedMode);
+    setSections(MODE_DEFAULT_SECTIONS[loadedMode]);
+    const step = settings.gridStep ?? 1;
+    setGridStep(step);
+    setGridStepInput(String(step));
+    setViewport(settings.viewport ?? { centerX: 0, centerY: 0, scale: scaleForGridStep(step) });
+    const xStep = settings.xTickStep ?? 1, yStep = settings.yTickStep ?? 1;
+    setXTickStep(xStep);
+    setYTickStep(yStep);
+    setXTickInput(String(xStep));
+    setYTickInput(String(yStep));
+    setAxisLabels(settings.axisLabels ?? { x: {}, y: {} });
+    setSnap(settings.snap ?? true);
+    setShowGrid(settings.showGrid ?? true);
+    setShowAxes(settings.showAxes ?? true);
+    setShowNumbers(settings.showNumbers ?? true);
+    setQuadrantView(QUADRANT_VIEWS.some((v) => v.value === settings.quadrantView) ? (settings.quadrantView as QuadrantView) : "all");
+    setClipToQuadrants(settings.clipToQuadrants ?? true);
+    setXAxisName(settings.xAxisName ?? "x");
+    setYAxisName(settings.yAxisName ?? "y");
+    const title = scene.title || file.name.replace(/\.[^.]+$/, "");
+    setSceneTitle(title);
+    setFeedback(`השרטוט "${title}" נפתח`);
+  };
   const applyGridStep = (raw: string) => {
     const v = Number(raw);
     if (Number.isFinite(v) && v > 0) {
@@ -3660,7 +3727,17 @@ export default function CoordinateWorkspace() {
             </svg>
           </button>
           <button className="view-reset" onClick={fit}>איפוס תצוגה</button>
-          <button className="export-action" onClick={exportPng}>⇩ ייצוא PNG</button>
+          <button
+            className="export-action file-action"
+            aria-haspopup="menu"
+            aria-expanded={!!fileMenu}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setFileMenu((open) => (open ? null : { left: Math.max(8, Math.min(rect.left, window.innerWidth - 268)), top: rect.bottom + 6 }));
+            }}
+          >
+            📁 קובץ ▾
+          </button>
         </div>
         <button
           className="mobile-panel"
@@ -3669,6 +3746,57 @@ export default function CoordinateWorkspace() {
           ☰ כלים
         </button>
       </header>
+      {fileMenu && (
+        <div className="file-menu-backdrop" onMouseDown={() => setFileMenu(null)}>
+          <div className="file-menu" role="menu" style={{ left: fileMenu.left, top: fileMenu.top }} onMouseDown={(event) => event.stopPropagation()}>
+            <button role="menuitem" className="save-action" onClick={() => { setFileMenu(null); setSaveDialogOpen(true); }}>
+              <span>💾 שמירת שרטוט</span><small>קובץ שאפשר לפתוח שוב ולהמשיך לעבוד</small>
+            </button>
+            <button role="menuitem" className="open-action" onClick={() => { setFileMenu(null); sceneInputRef.current?.click(); }}>
+              <span>📂 פתיחת שרטוט</span><small>או גררו קובץ שרטוט אל המישור</small>
+            </button>
+            <button role="menuitem" className="png-action" onClick={() => { setFileMenu(null); exportPng(); }}>
+              <span>⇩ ייצוא PNG</span><small>תמונה של המישור</small>
+            </button>
+          </div>
+        </div>
+      )}
+      <input
+        ref={sceneInputRef}
+        type="file"
+        accept={`${SCENE_EXTENSION},application/json,.json`}
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void openSceneFile(file);
+        }}
+      />
+      {saveDialogOpen && (
+        <div className="help-backdrop" onMouseDown={() => setSaveDialogOpen(false)}>
+          <form
+            className="help-dialog save-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="שמירת שרטוט"
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveScene();
+            }}
+          >
+            <div className="help-heading"><h2>שמירת שרטוט</h2><button type="button" aria-label="סגירה" onClick={() => setSaveDialogOpen(false)}>×</button></div>
+            <p>השרטוט יישמר כקובץ מסוג merhav שאפשר לפתוח שוב בכפתור &quot;פתיחה&quot; או בגרירה אל המישור, והוא ימשיך לזוז ולהתעדכן.</p>
+            <label htmlFor="scene-title">שם הקובץ</label>
+            <input id="scene-title" autoFocus value={sceneTitle} onChange={(event) => setSceneTitle(event.target.value)} onFocus={(event) => event.target.select()} />
+            <small>יישמר בשם: <bdi>{sceneFileName(sceneTitle)}</bdi></small>
+            <div className="save-dialog-actions">
+              <button type="button" onClick={() => setSaveDialogOpen(false)}>ביטול</button>
+              <button type="submit" className="primary">שמירה</button>
+            </div>
+          </form>
+        </div>
+      )}
       {helpOpen && (
         <div className="help-backdrop" onMouseDown={() => setHelpOpen(false)}>
           <section className="help-dialog" role="dialog" aria-modal="true" aria-label="עזרה וחיפוש כלים" onMouseDown={(event) => event.stopPropagation()}>
@@ -3697,7 +3825,7 @@ export default function CoordinateWorkspace() {
       )}
       {feedback && (
         <div
-          className={`feedback ${feedback.includes("בהצלחה") || feedback.includes("נוסף") ? "success" : ""}`}
+          className={`feedback ${feedback.includes("בהצלחה") || feedback.includes("נוסף") || feedback.startsWith("השרטוט") ? "success" : ""}`}
         >
           <span>{feedback}</span>
           <button onClick={() => setFeedback(null)}>×</button>
@@ -4215,7 +4343,24 @@ export default function CoordinateWorkspace() {
             </ToolSection>
           )}
         </aside>
-        <div className="canvas-area" ref={wrapRef}>
+        <div
+          className={`canvas-area${sceneDragOver ? " scene-drop" : ""}`}
+          ref={wrapRef}
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            setSceneDragOver(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSceneDragOver(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setSceneDragOver(false);
+            const file = event.dataTransfer.files[0];
+            if (file) void openSceneFile(file);
+          }}
+        >
           <canvas
             ref={canvasRef}
             onPointerDown={onDown}
